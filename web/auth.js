@@ -24,11 +24,12 @@ export async function initializeAuth() {
   return Boolean(token?.access_token) && !isExpired(token);
 }
 
-export async function signIn() {
+export async function signIn(additionalScopes = []) {
   if (!OAUTH.clientId || OAUTH.clientId.startsWith("PASTE_")) {
     throw new Error("Set the Cloudflare OAuth Client ID in web/config.js first.");
   }
 
+  const requestedScopes = [...new Set([...OAUTH.scopes, ...additionalScopes])];
   const verifier = randomBase64Url(48);
   const challenge = base64Url(
     new Uint8Array(
@@ -38,19 +39,27 @@ export async function signIn() {
   const state = randomBase64Url(24);
   const redirectUri = callbackUri();
 
-  sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier, state, redirectUri }));
+  sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier, state, redirectUri, requestedScopes }));
 
   const params = new URLSearchParams({
     response_type: "code",
     client_id: OAUTH.clientId,
     redirect_uri: redirectUri,
-    scope: OAUTH.scopes.join(" "),
+    scope: requestedScopes.join(" "),
     state,
     code_challenge: challenge,
     code_challenge_method: "S256"
   });
 
   location.assign(`${OAUTH.authorizationEndpoint}?${params}`);
+}
+
+export function enableDeployMetrics() {
+  return signIn(OAUTH.extendedScopes);
+}
+
+export function hasDeployMetricsAccess() {
+  return hasGrantedScopes(OAUTH.extendedScopes);
 }
 
 export async function signOut() {
@@ -87,6 +96,12 @@ export function isSignedIn() {
   return Boolean(token?.access_token) && !isExpired(token);
 }
 
+function hasGrantedScopes(scopes) {
+  if (!token) return false;
+  const granted = new Set(token.granted_scopes || []);
+  return scopes.every(scope => granted.has(scope));
+}
+
 async function completeAuthorization(url) {
   const saved = JSON.parse(sessionStorage.getItem(PKCE_KEY) || "null");
   sessionStorage.removeItem(PKCE_KEY);
@@ -107,7 +122,11 @@ async function completeAuthorization(url) {
     })
   });
 
-  token = normalizeToken(await parseTokenResponse(response));
+  const value = await parseTokenResponse(response);
+  token = normalizeToken({
+    ...value,
+    granted_scopes: parseScopes(value.scope, saved.requestedScopes)
+  });
 }
 
 async function refreshAccessToken() {
@@ -128,7 +147,8 @@ async function refreshAccessToken() {
   token = normalizeToken({
     ...current,
     ...refreshed,
-    refresh_token: refreshed.refresh_token || current.refresh_token
+    refresh_token: refreshed.refresh_token || current.refresh_token,
+    granted_scopes: parseScopes(refreshed.scope, current.granted_scopes)
   });
 }
 
@@ -142,6 +162,12 @@ async function parseTokenResponse(response) {
     );
   }
   return payload;
+}
+
+function parseScopes(scope, fallback = []) {
+  if (Array.isArray(scope)) return scope;
+  if (typeof scope === "string" && scope.trim()) return scope.trim().split(/\s+/);
+  return Array.isArray(fallback) ? fallback : [];
 }
 
 function normalizeToken(value) {

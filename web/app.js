@@ -1,10 +1,20 @@
-import { getAccessToken, initializeAuth, isSignedIn, signIn, signOut } from "./auth.js?v=__COMMIT_SHA__";
+import {
+  enableDeployMetrics,
+  getAccessToken,
+  hasDeployMetricsAccess,
+  initializeAuth,
+  isSignedIn,
+  signIn,
+  signOut
+} from "./auth.js?v=__COMMIT_SHA__";
 import { listAccounts, loadUsage } from "./usage.js?v=__COMMIT_SHA__";
 
 const els = {
   authButton: document.querySelector("#auth-button"),
+  deployAuthButton: document.querySelector("#deploy-auth"),
   refreshButton: document.querySelector("#refresh"),
   accountSelect: document.querySelector("#account"),
+  planSelect: document.querySelector("#plan"),
   status: document.querySelector("#status"),
   updated: document.querySelector("#updated"),
   dashboard: document.querySelector("#dashboard")
@@ -12,6 +22,7 @@ const els = {
 
 let accounts = [];
 let selectedAccountId = null;
+let selectedPlan = "free";
 let loading = false;
 
 boot();
@@ -54,11 +65,25 @@ function bindEvents() {
     }
   });
 
+  els.deployAuthButton.addEventListener("click", async () => {
+    if (loading) return;
+    try {
+      await enableDeployMetrics();
+    } catch (error) {
+      setStatus(errorMessage(error), true);
+    }
+  });
+
   els.refreshButton.addEventListener("click", () => refreshUsage());
 
   els.accountSelect.addEventListener("change", () => {
     selectedAccountId = els.accountSelect.value;
     refreshUsage();
+  });
+
+  els.planSelect.addEventListener("change", () => {
+    selectedPlan = els.planSelect.value === "paid" ? "paid" : "free";
+    if (isSignedIn() && selectedAccountId) refreshUsage();
   });
 }
 
@@ -97,10 +122,13 @@ async function refreshUsage() {
       throw new Error("Session expired. Sign in again.");
     }
 
-    const cards = await loadUsage(accessToken, selectedAccountId);
+    const cards = await loadUsage(accessToken, selectedAccountId, selectedPlan, {
+      deploymentAccess: hasDeployMetricsAccess()
+    });
     renderCards(cards);
     const now = new Date();
-    setStatus(`${cards.filter(card => card.confidence !== "unavailable").length} metrics loaded`);
+    const loaded = cards.filter(card => card.confidence !== "unavailable").length;
+    setStatus(`${loaded} metrics loaded · Workers ${selectedPlan === "paid" ? "Paid" : "Free"}`);
     els.updated.textContent = `Updated ${formatTime(now)}`;
   } catch (error) {
     setStatus(errorMessage(error), true);
@@ -211,6 +239,7 @@ function renderMetric(card) {
 function updateAuthUi() {
   const signedIn = isSignedIn();
   els.authButton.textContent = signedIn ? "Sign out" : "Sign in";
+  els.deployAuthButton.hidden = !signedIn || hasDeployMetricsAccess();
   if (!signedIn) {
     els.refreshButton.disabled = true;
     els.accountSelect.disabled = true;
@@ -221,6 +250,7 @@ function setLoading(value) {
   loading = value;
   els.refreshButton.toggleAttribute("aria-busy", value);
   els.authButton.disabled = value;
+  els.deployAuthButton.disabled = value;
   if (value) els.refreshButton.disabled = true;
   else if (isSignedIn() && selectedAccountId) els.refreshButton.disabled = false;
 }
@@ -247,6 +277,9 @@ function behaviorText(value) {
 function formatValue(value, unit) {
   if (value == null) return "—";
   if (unit === "bytes") return formatBytes(value);
+  if (unit === "minutes") {
+    return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(value)} min`;
+  }
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value);
 }
 

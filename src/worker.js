@@ -21,63 +21,9 @@ export default {
       return proxyCloudflare(request, `${CLOUDFLARE_API}/graphql`, authorization);
     }
 
-    if (request.method === "GET") {
-      const upstream = extendedReadUrl(url);
-      if (upstream) return proxyCloudflare(request, upstream, authorization);
-    }
-
     return json({ error: "Not found" }, 404);
   }
 };
-
-function extendedReadUrl(url) {
-  const accountId = safeId(url.searchParams.get("account_id"));
-  if (!accountId) return null;
-
-  const page = safePage(url.searchParams.get("page"));
-  const perPage = safePerPage(url.searchParams.get("per_page"));
-  const paging = `page=${page}&per_page=${perPage}`;
-
-  if (url.pathname === "/api/cloudflare/workers/scripts") {
-    return `${CLOUDFLARE_API}/accounts/${accountId}/workers/scripts`;
-  }
-
-  if (url.pathname === "/api/cloudflare/workers/builds") {
-    const tag = safeId(url.searchParams.get("tag"));
-    if (!tag) return null;
-    return `${CLOUDFLARE_API}/accounts/${accountId}/builds/workers/${tag}/builds?${paging}`;
-  }
-
-  if (url.pathname === "/api/cloudflare/pages/projects") {
-    return `${CLOUDFLARE_API}/accounts/${accountId}/pages/projects?${paging}`;
-  }
-
-  if (url.pathname === "/api/cloudflare/pages/deployments") {
-    const project = safeName(url.searchParams.get("project"));
-    if (!project) return null;
-    return `${CLOUDFLARE_API}/accounts/${accountId}/pages/projects/${encodeURIComponent(project)}/deployments?${paging}`;
-  }
-
-  return null;
-}
-
-function safeId(value) {
-  return typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : null;
-}
-
-function safeName(value) {
-  return typeof value === "string" && /^[A-Za-z0-9._-]{1,128}$/.test(value) ? value : null;
-}
-
-function safePage(value) {
-  const number = Number.parseInt(value || "1", 10);
-  return Number.isInteger(number) && number >= 1 && number <= 1000 ? number : 1;
-}
-
-function safePerPage(value) {
-  const number = Number.parseInt(value || "100", 10);
-  return Number.isInteger(number) && number >= 1 && number <= 100 ? number : 100;
-}
 
 async function proxyCloudflare(request, upstreamUrl, authorization) {
   const headers = new Headers({

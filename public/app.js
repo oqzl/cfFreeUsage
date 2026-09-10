@@ -27,8 +27,12 @@ async function boot() {
     else renderSignedOut();
   } catch (error) {
     updateAuthUi();
-    setStatus(errorMessage(error), true);
-    renderSignedOut();
+    if (isSignedIn()) {
+      renderSignedInError(error);
+    } else {
+      renderSignedOut();
+      setStatus(errorMessage(error), true);
+    }
   }
 }
 
@@ -71,10 +75,11 @@ async function loadAccountsAndUsage() {
 
     selectedAccountId = accounts[0].id;
     renderAccountSelect();
-    await refreshUsage();
   } finally {
     setLoading(false);
   }
+
+  await refreshUsage();
 }
 
 async function refreshUsage() {
@@ -118,6 +123,19 @@ function renderSignedOut() {
   `;
   els.dashboard.querySelector("[data-sign-in]")?.addEventListener("click", () => signIn().catch(error => setStatus(errorMessage(error), true)));
   setStatus("Signed out");
+  els.updated.textContent = "";
+}
+
+function renderSignedInError(error) {
+  els.refreshButton.disabled = true;
+  els.dashboard.innerHTML = `
+    <section class="empty-state">
+      <h2>Could not load Cloudflare data</h2>
+      <p>${escapeHtml(errorMessage(error))}</p>
+      <p>You are still signed in. Sign out and sign in again only if the OAuth grant or scopes need to be changed.</p>
+    </section>
+  `;
+  setStatus(errorMessage(error), true);
   els.updated.textContent = "";
 }
 

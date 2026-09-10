@@ -1,4 +1,4 @@
-const API_BASE = "https://api.cloudflare.com/client/v4";
+const API_BASE = "/api/cloudflare";
 const GRAPHQL_ENDPOINT = `${API_BASE}/graphql`;
 
 const GiB = 1024 ** 3;
@@ -15,7 +15,7 @@ const DAILY = {
 };
 
 export async function listAccounts(accessToken) {
-  const response = await fetch(`${API_BASE}/accounts?per_page=50`, {
+  const response = await fetch(`${API_BASE}/accounts`, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   const payload = await response.json().catch(() => ({}));

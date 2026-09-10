@@ -6,9 +6,11 @@ English: [README.md](README.md)
 
 ## リポジトリ構成
 
-PWA の正本と Cloudflare Static Assets の配布 root はどちらも `web/` とします。
+PWA の正本と Cloudflare Static Assets の配布 root はどちらも `web/` とします。ブラウザの CORS 制約を避けるため、`src/` の最小 Worker がダッシュボードに必要な Cloudflare API 呼び出しだけを中継します。
 
 ```text
+src/
+  worker.js
 web/
   index.html
   app.js
@@ -26,13 +28,14 @@ cache bust のためだけに配布 root を `public/`、`dist/`、`build/` 等�
 
 ## 構成
 
-- Cloudflare Workers Static Assets で配信する静的 PWA
+- Cloudflare Workers Static Assets で配信する PWA
+- `/api/cloudflare/accounts` と `/api/cloudflare/graphql` だけを公開する same-origin Worker relay
 - Cloudflare self-managed OAuth の Authorization Code + PKCE (`S256`)
 - OAuth Client Secret はアプリに持たない
 - access token / refresh token は **JavaScript のメモリだけ**に保持
 - 再読み込み、PWA の終了・再起動でログイン状態は消える
 - OAuth リダイレクトを跨ぐため、PKCE の `state` と `code_verifier` だけを `sessionStorage` に一時保存し、callback 処理直後に削除
-- Cloudflare GraphQL Analytics をブラウザから直接取得
+- Cloudflare API 呼び出しごとに、ブラウザのメモリ上の bearer token を same-origin relay へ渡す。Worker は token を保存せず、レスポンスにも含めない
 - リソースごとの値をアカウント全体で合計してから、Free allowance を1回だけ適用
 - 日次上限は rolling 24 hours ではなく UTC 00:00 起点
 - データセット未提供・権限不足・取得エラーは 0 ではなく `Unavailable` と表示
@@ -71,7 +74,7 @@ Cloudflare で self-managed OAuth client を作成します。
    - `account-analytics.read`
 8. 発行された OAuth Client ID を `web/config.js` に設定
 
-ブラウザだけで完結する構成なので Client Secret は使いません。
+Client Secret は使いません。Allowed CORS Origins はブラウザから OAuth token endpoint を呼ぶために必要です。Cloudflare API のデータ取得は same-origin Worker relay 経由にします。
 
 Cloudflare OAuth documentation:
 https://developers.cloudflare.com/fundamentals/oauth/create-an-oauth-client/
@@ -90,7 +93,7 @@ Static assets directory: web
 
 `npm run build` は `WORKERS_CI_COMMIT_SHA` を優先し、asset URL、ES module import、Service Worker registration URL、Service Worker cache 名、precache URL、manifest icon URL、画面下部の Build 表示へ同じ SHA を stamp します。
 
-`wrangler.jsonc` も `./web` を直接参照します。`dist/` を deployment layer として挟みません。
+`wrangler.jsonc` は `./web` を直接参照し、`/api/*` だけを `src/worker.js` に通します。`dist/` を deployment layer として挟みません。
 
 ## ローカル開発
 
@@ -110,9 +113,10 @@ Cloudflare Workers Builds では build command を deploy command より先に�
 ログイン永続化を捨てて、credential の永続化面を小さくしています。
 
 - OAuth token を IndexedDB、`localStorage`、Cache Storage、Cookie、Service Worker cache に保存しない
-- Service Worker は静的 app shell だけを cache
-- OAuth / Cloudflare API リクエストは Service Worker の cache 対象外
-- CSP で script を same-origin のみに制限し、接続先を Cloudflare endpoint に限定
+- bearer token は自分の Worker を通るが、allowlist した2つの Cloudflare API endpoint への中継時だけ使い、Worker 側では永続化しない
+- Service Worker は静的 app shell だけを cache し、`/api/` は明示的に除外
+- API relay response は `Cache-Control: no-store`
+- CSP で script を same-origin のみに制限し、ブラウザの接続先を same-origin と Cloudflare OAuth endpoint に限定
 
 ただし、ページ実行中の XSS に対してメモリ上の token が安全になるわけではありません。同一 origin の JavaScript からは token にアクセスできます。第三者 script を置かず、この PWA 専用 origin として運用する前提です。
 

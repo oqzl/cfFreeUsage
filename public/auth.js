@@ -1,32 +1,29 @@
 import { OAUTH } from "./config.js";
-import { clearToken, loadToken, saveToken } from "./storage.js";
 
 const PKCE_KEY = "cffreeusage.pkce";
 let token = null;
 
 export async function initializeAuth() {
   const url = new URL(location.href);
+
   if (url.searchParams.has("error")) {
     const message = url.searchParams.get("error_description") || url.searchParams.get("error");
     cleanupCallbackUrl();
     throw new Error(`OAuth authorization failed: ${message}`);
   }
+
   if (url.searchParams.has("code")) {
-    await completeAuthorization(url);
-    cleanupCallbackUrl();
-  }
-  token = await loadToken();
-  if (token?.access_token && !isExpired(token)) return true;
-  if (token?.refresh_token) {
     try {
-      await refreshAccessToken();
+      await completeAuthorization(url);
       return true;
-    } catch {
-      await clearToken();
-      token = null;
+    } finally {
+      cleanupCallbackUrl();
     }
   }
-  return false;
+
+  // OAuth tokens deliberately live only in this JavaScript module's memory.
+  // Reloading, closing, or restarting the PWA therefore requires sign-in again.
+  return Boolean(token?.access_token) && !isExpired(token);
 }
 
 export async function signIn() {
@@ -35,9 +32,16 @@ export async function signIn() {
   }
 
   const verifier = randomBase64Url(48);
-  const challenge = base64Url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))));
+  const challenge = base64Url(
+    new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier))
+    )
+  );
   const state = randomBase64Url(24);
   const redirectUri = callbackUri();
+
+  // PKCE state must survive the round trip to Cloudflare. It is not a token and
+  // is removed immediately when the callback is processed.
   sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier, state, redirectUri }));
 
   const params = new URLSearchParams({
@@ -49,35 +53,48 @@ export async function signIn() {
     code_challenge: challenge,
     code_challenge_method: "S256"
   });
+
   location.assign(`${OAUTH.authorizationEndpoint}?${params}`);
 }
 
 export async function signOut() {
-  const current = token || await loadToken();
+  const current = token;
   token = null;
-  await clearToken();
+
   if (current?.refresh_token) {
     await fetch(OAUTH.revokeEndpoint, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ token: current.refresh_token, client_id: OAUTH.clientId })
+      body: new URLSearchParams({
+        token: current.refresh_token,
+        client_id: OAUTH.clientId
+      })
     }).catch(() => {});
   }
 }
 
 export async function getAccessToken() {
-  token ||= await loadToken();
   if (!token) return null;
+
   if (isExpired(token)) {
-    if (!token.refresh_token) return null;
+    if (!token.refresh_token) {
+      token = null;
+      return null;
+    }
     await refreshAccessToken();
   }
+
   return token.access_token;
+}
+
+export function isSignedIn() {
+  return Boolean(token?.access_token) && !isExpired(token);
 }
 
 async function completeAuthorization(url) {
   const saved = JSON.parse(sessionStorage.getItem(PKCE_KEY) || "null");
   sessionStorage.removeItem(PKCE_KEY);
+
   if (!saved || saved.state !== url.searchParams.get("state")) {
     throw new Error("OAuth state mismatch. Start sign-in again.");
   }
@@ -93,13 +110,14 @@ async function completeAuthorization(url) {
       code_verifier: saved.verifier
     })
   });
+
   token = normalizeToken(await parseTokenResponse(response));
-  await saveToken(token);
 }
 
 async function refreshAccessToken() {
-  const current = token || await loadToken();
-  if (!current?.refresh_token) throw new Error("No refresh token available.");
+  if (!token?.refresh_token) throw new Error("No refresh token available.");
+
+  const current = token;
   const response = await fetch(OAUTH.tokenEndpoint, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -109,15 +127,23 @@ async function refreshAccessToken() {
       refresh_token: current.refresh_token
     })
   });
+
   const refreshed = await parseTokenResponse(response);
-  token = normalizeToken({ ...current, ...refreshed, refresh_token: refreshed.refresh_token || current.refresh_token });
-  await saveToken(token);
+  token = normalizeToken({
+    ...current,
+    ...refreshed,
+    refresh_token: refreshed.refresh_token || current.refresh_token
+  });
 }
 
 async function parseTokenResponse(response) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.error) {
-    throw new Error(payload.error_description || payload.error || `OAuth token endpoint returned HTTP ${response.status}`);
+    throw new Error(
+      payload.error_description ||
+        payload.error ||
+        `OAuth token endpoint returned HTTP ${response.status}`
+    );
   }
   return payload;
 }
@@ -154,5 +180,8 @@ function randomBase64Url(length) {
 function base64Url(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/, "");
 }

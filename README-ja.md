@@ -4,6 +4,26 @@ Cloudflare の Free tier 使用量をアカウント全体で確認するため�
 
 English: [README.md](README.md)
 
+## リポジトリ構成
+
+PWA の正本と Cloudflare Static Assets の配布 root はどちらも `web/` とします。
+
+```text
+web/
+  index.html
+  app.js
+  auth.js
+  usage.js
+  config.js
+  style.css
+  manifest.webmanifest
+  sw.js
+  icon.svg
+  _headers
+```
+
+cache bust のためだけに配布 root を `public/`、`dist/`、`build/` 等へ変更しません。`wrangler.jsonc`、Cloudflare Builds、その他の deployment path は、プロジェクト要件として明示的に一括変更しない限り `web/` を静的配布 root として維持します。
+
 ## 構成
 
 - Cloudflare Workers Static Assets で配信する静的 PWA
@@ -49,12 +69,28 @@ Cloudflare で self-managed OAuth client を作成します。
 7. scope に以下を追加
    - `account-settings.read`
    - `account-analytics.read`
-8. 発行された OAuth Client ID を `public/config.js` に設定
+8. 発行された OAuth Client ID を `web/config.js` に設定
 
 ブラウザだけで完結する構成なので Client Secret は使いません。
 
 Cloudflare OAuth documentation:
 https://developers.cloudflare.com/fundamentals/oauth/create-an-oauth-client/
+
+## Cloudflare Builds
+
+production の cache identity は Git commit SHA に統一します。source 内の `__COMMIT_SHA__` を Cloudflare の build step で置換してから配布します。
+
+Cloudflare 側の設定:
+
+```text
+Build command: npm run build
+Deploy command: npx wrangler deploy
+Static assets directory: web
+```
+
+`npm run build` は `WORKERS_CI_COMMIT_SHA` を優先し、asset URL、ES module import、Service Worker registration URL、Service Worker cache 名、precache URL、manifest icon URL、画面下部の Build 表示へ同じ SHA を stamp します。
+
+`wrangler.jsonc` も `./web` を直接参照します。`dist/` を deployment layer として挟みません。
 
 ## ローカル開発
 
@@ -67,11 +103,7 @@ OAuth の Redirect URI は完全一致です。ローカルで認証まで試す
 
 ## デプロイ
 
-```sh
-npm run deploy
-```
-
-`wrangler.jsonc` は `./public` を Static Assets として配信します。Cloudflare API の取得処理のための dynamic Worker は置きません。
+Cloudflare Workers Builds では build command を deploy command より先に実行します。手動 deploy の場合も、対象 checkout に SHA を stamp してから Wrangler で配布します。
 
 ## セキュリティ境界
 

@@ -4,6 +4,26 @@ A small PWA that shows account-wide Cloudflare free-tier usage from Cloudflare A
 
 Japanese: [README-ja.md](README-ja.md)
 
+## Repository layout
+
+The PWA source and Cloudflare Static Assets root are both `web/`.
+
+```text
+web/
+  index.html
+  app.js
+  auth.js
+  usage.js
+  config.js
+  style.css
+  manifest.webmanifest
+  sw.js
+  icon.svg
+  _headers
+```
+
+Do not move the deploy root to `public/`, `dist/`, `build/`, or another generated directory just to implement cache busting. `wrangler.jsonc`, Cloudflare Builds, and any other deployment path must all keep `web/` as the static asset root unless the repository requirements are deliberately changed together.
+
 ## Design
 
 - Static PWA deployed with Cloudflare Workers Static Assets.
@@ -49,12 +69,28 @@ Create a Cloudflare self-managed OAuth client:
 7. Grant these scopes:
    - `account-settings.read`
    - `account-analytics.read`
-8. Copy the OAuth Client ID into `public/config.js`.
+8. Copy the OAuth Client ID into `web/config.js`.
 
 No client secret is required or supported by this browser-only architecture.
 
 Cloudflare OAuth documentation:
 https://developers.cloudflare.com/fundamentals/oauth/create-an-oauth-client/
+
+## Cloudflare Builds
+
+Production cache identity is derived from the Git commit SHA. Source files contain `__COMMIT_SHA__`; the Cloudflare build step replaces it before deployment.
+
+Cloudflare configuration:
+
+```text
+Build command: npm run build
+Deploy command: npx wrangler deploy
+Static assets directory: web
+```
+
+`npm run build` stamps `WORKERS_CI_COMMIT_SHA` (falling back to other CI/git SHA values) into asset URLs, ES module imports, Service Worker registration, Service Worker cache name, precache URLs, manifest icon URL, and the visible build label.
+
+`wrangler.jsonc` points directly to `./web`. There is no `dist/` deployment layer.
 
 ## Local development
 
@@ -67,11 +103,7 @@ OAuth redirect URIs are exact. To test OAuth locally, add the local Wrangler URL
 
 ## Deploy
 
-```sh
-npm run deploy
-```
-
-`wrangler.jsonc` deploys only `./public` as static assets. The dashboard itself does not run a dynamic Worker for API requests.
+Cloudflare Workers Builds should run the build command before the deploy command. For a direct manual deployment, stamp the checkout first, then run Wrangler from that stamped checkout.
 
 ## Security boundary
 

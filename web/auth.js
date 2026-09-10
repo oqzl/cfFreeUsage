@@ -1,4 +1,4 @@
-import { OAUTH } from "./config.js";
+import { OAUTH } from "./config.js?v=__COMMIT_SHA__";
 
 const PKCE_KEY = "cffreeusage.pkce";
 let token = null;
@@ -21,14 +21,12 @@ export async function initializeAuth() {
     }
   }
 
-  // OAuth tokens deliberately live only in this JavaScript module's memory.
-  // Reloading, closing, or restarting the PWA therefore requires sign-in again.
   return Boolean(token?.access_token) && !isExpired(token);
 }
 
 export async function signIn() {
   if (!OAUTH.clientId || OAUTH.clientId.startsWith("PASTE_")) {
-    throw new Error("Set the Cloudflare OAuth Client ID in public/config.js first.");
+    throw new Error("Set the Cloudflare OAuth Client ID in web/config.js first.");
   }
 
   const verifier = randomBase64Url(48);
@@ -40,8 +38,6 @@ export async function signIn() {
   const state = randomBase64Url(24);
   const redirectUri = callbackUri();
 
-  // PKCE state must survive the round trip to Cloudflare. It is not a token and
-  // is removed immediately when the callback is processed.
   sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier, state, redirectUri }));
 
   const params = new URLSearchParams({

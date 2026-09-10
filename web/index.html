@@ -6,9 +6,9 @@
   <meta name="theme-color" content="#f6f6f3">
   <meta name="description" content="Cloudflare free-tier usage dashboard">
   <title>cfFreeUsage</title>
-  <link rel="manifest" href="/manifest.webmanifest">
-  <link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="manifest" href="/manifest.webmanifest?v=__COMMIT_SHA__">
+  <link rel="icon" href="/icon.svg?v=__COMMIT_SHA__" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css?v=__COMMIT_SHA__">
 </head>
 <body>
   <main class="shell">
@@ -41,9 +41,10 @@
     <section id="dashboard" class="dashboard"></section>
 
     <footer>
-      Daily quotas are measured from 00:00 UTC, not a rolling 24-hour window. GraphQL Analytics is operational telemetry rather than billing-canonical data. OAuth access and refresh tokens are kept in JavaScript memory only and disappear on reload or app restart.
+      Daily quotas are measured from 00:00 UTC, not a rolling 24-hour window. GraphQL Analytics is operational telemetry rather than billing-canonical data. OAuth access and refresh tokens are kept in JavaScript memory only and disappear on reload or app restart.<br>
+      Build __COMMIT_SHA__
     </footer>
   </main>
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="/app.js?v=__COMMIT_SHA__"></script>
 </body>
 </html>

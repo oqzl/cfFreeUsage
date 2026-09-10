@@ -1,5 +1,5 @@
-import { getAccessToken, initializeAuth, isSignedIn, signIn, signOut } from "./auth.js";
-import { listAccounts, loadUsage } from "./usage.js";
+import { getAccessToken, initializeAuth, isSignedIn, signIn, signOut } from "./auth.js?v=__COMMIT_SHA__";
+import { listAccounts, loadUsage } from "./usage.js?v=__COMMIT_SHA__";
 
 const els = {
   authButton: document.querySelector("#auth-button"),
@@ -290,6 +290,8 @@ function escapeHtml(value) {
 
 function registerServiceWorker() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=__COMMIT_SHA__", { updateViaCache: "none" })
+      .then(registration => registration.update())
+      .catch(() => {});
   }
 }

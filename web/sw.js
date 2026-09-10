@@ -1,14 +1,14 @@
-const CACHE = "cffreeusage-shell-v1";
+const CACHE = "cffreeusage-shell-__COMMIT_SHA__";
 const APP_SHELL = [
   "/",
   "/index.html",
-  "/style.css",
-  "/app.js",
-  "/auth.js",
-  "/usage.js",
-  "/config.js",
-  "/manifest.webmanifest",
-  "/icon.svg"
+  "/style.css?v=__COMMIT_SHA__",
+  "/app.js?v=__COMMIT_SHA__",
+  "/auth.js?v=__COMMIT_SHA__",
+  "/usage.js?v=__COMMIT_SHA__",
+  "/config.js?v=__COMMIT_SHA__",
+  "/manifest.webmanifest?v=__COMMIT_SHA__",
+  "/icon.svg?v=__COMMIT_SHA__"
 ];
 
 self.addEventListener("install", event => {
@@ -26,7 +26,6 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
 
-  // Never cache OAuth or Cloudflare API traffic.
   if (url.origin !== self.location.origin || event.request.method !== "GET") return;
 
   if (event.request.mode === "navigate") {

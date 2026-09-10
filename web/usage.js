@@ -108,8 +108,6 @@ async function kv(ctx) {
     usageByAction.set(action, (usageByAction.get(action) || 0) + Number(row.sum?.requests || 0));
   }
 
-  // Storage rows are per namespace. max(byteCount) is the current/peak sample for
-  // that namespace in the queried day; sum across namespaces for account usage.
   const storage = sum(acc?.kvStorageAdaptiveGroups || [], row => row.max?.byteCount);
 
   return [
@@ -213,10 +211,6 @@ async function r2(ctx) {
     Number(row.max?.payloadSize || 0) + Number(row.max?.metadataSize || 0)
   );
 
-  // R2's free request allowance is split into Class A / Class B operations.
-  // actionType-to-class mapping is intentionally not guessed here. Show total
-  // operation analytics as informational until a billing-equivalent classifier
-  // is implemented.
   return [
     infoCard("R2", "Requests", operations, "month to date", "Analytics total; Class A/B quota classification unavailable", ctx),
     fixedCard("R2", "Storage snapshot", storage, 10 * GiB, "bytes", "current snapshot; free allowance is GB-month", "bills", ctx, "estimate")

@@ -62,6 +62,18 @@ export function hasDeployMetricsAccess() {
   return hasGrantedScopes(OAUTH.extendedScopes);
 }
 
+export function getAuthDiagnostics() {
+  return {
+    signedIn: isSignedIn(),
+    accessTokenPresent: Boolean(token?.access_token),
+    refreshTokenPresent: Boolean(token?.refresh_token),
+    requestedScopes: Array.isArray(token?.requested_scopes) ? [...token.requested_scopes] : [],
+    grantedScopes: Array.isArray(token?.granted_scopes) ? [...token.granted_scopes] : [],
+    grantedScopesSource: token?.granted_scopes_source || null,
+    expiresAt: Number.isFinite(token?.expires_at) ? new Date(token.expires_at).toISOString() : null
+  };
+}
+
 export async function signOut() {
   const current = token;
   token = null;
@@ -123,9 +135,12 @@ async function completeAuthorization(url) {
   });
 
   const value = await parseTokenResponse(response);
+  const responseScopes = parseScopes(value.scope);
   token = normalizeToken({
     ...value,
-    granted_scopes: parseScopes(value.scope, saved.requestedScopes)
+    requested_scopes: saved.requestedScopes,
+    granted_scopes: responseScopes.length ? responseScopes : saved.requestedScopes,
+    granted_scopes_source: responseScopes.length ? "token-response" : "requested-fallback"
   });
 }
 
@@ -144,11 +159,13 @@ async function refreshAccessToken() {
   });
 
   const refreshed = await parseTokenResponse(response);
+  const responseScopes = parseScopes(refreshed.scope);
   token = normalizeToken({
     ...current,
     ...refreshed,
     refresh_token: refreshed.refresh_token || current.refresh_token,
-    granted_scopes: parseScopes(refreshed.scope, current.granted_scopes)
+    granted_scopes: responseScopes.length ? responseScopes : current.granted_scopes,
+    granted_scopes_source: responseScopes.length ? "token-response" : current.granted_scopes_source
   });
 }
 
@@ -164,10 +181,10 @@ async function parseTokenResponse(response) {
   return payload;
 }
 
-function parseScopes(scope, fallback = []) {
+function parseScopes(scope) {
   if (Array.isArray(scope)) return scope;
   if (typeof scope === "string" && scope.trim()) return scope.trim().split(/\s+/);
-  return Array.isArray(fallback) ? fallback : [];
+  return [];
 }
 
 function normalizeToken(value) {

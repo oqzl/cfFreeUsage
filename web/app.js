@@ -1,6 +1,7 @@
 import {
   enableDeployMetrics,
   getAccessToken,
+  getAuthDiagnostics,
   hasDeployMetricsAccess,
   initializeAuth,
   isSignedIn,
@@ -20,6 +21,8 @@ const els = {
   dashboard: document.querySelector("#dashboard")
 };
 
+const BUILD_ID = "__COMMIT_SHA__";
+const diagnostics = [];
 let accounts = [];
 let selectedAccountId = null;
 let selectedPlan = "free";
@@ -29,14 +32,17 @@ boot();
 
 async function boot() {
   bindEvents();
+  logDiagnostic("boot.start", runtimeDiagnostics());
   registerServiceWorker();
 
   try {
     const signedIn = await initializeAuth();
+    logDiagnostic("auth.initialized", getAuthDiagnostics());
     updateAuthUi();
     if (signedIn) await loadAccountsAndUsage();
     else renderSignedOut();
   } catch (error) {
+    logDiagnosticError("boot.error", error, { auth: getAuthDiagnostics() });
     updateAuthUi();
     if (isSignedIn()) {
       renderSignedInError(error);
@@ -52,15 +58,18 @@ function bindEvents() {
     if (loading) return;
     try {
       if (isSignedIn()) {
+        logDiagnostic("auth.sign_out", getAuthDiagnostics());
         await signOut();
         accounts = [];
         selectedAccountId = null;
         updateAuthUi();
         renderSignedOut();
       } else {
+        logDiagnostic("auth.sign_in", { requested: "base scopes" });
         await signIn();
       }
     } catch (error) {
+      logDiagnosticError("auth.action_error", error, { auth: getAuthDiagnostics() });
       setStatus(errorMessage(error), true);
     }
   });
@@ -68,8 +77,10 @@ function bindEvents() {
   els.deployAuthButton.addEventListener("click", async () => {
     if (loading) return;
     try {
+      logDiagnostic("auth.deploy_metrics_sign_in", getAuthDiagnostics());
       await enableDeployMetrics();
     } catch (error) {
+      logDiagnosticError("auth.deploy_metrics_error", error, { auth: getAuthDiagnostics() });
       setStatus(errorMessage(error), true);
     }
   });
@@ -95,7 +106,25 @@ async function loadAccountsAndUsage() {
     const accessToken = await getAccessToken();
     if (!accessToken) throw new Error("Session expired. Sign in again.");
 
-    accounts = await listAccounts(accessToken);
+    const auth = getAuthDiagnostics();
+    logDiagnostic("accounts.request", {
+      path: "/api/cloudflare/accounts",
+      auth,
+      runtime: runtimeDiagnostics()
+    });
+
+    try {
+      accounts = await listAccounts(accessToken);
+      logDiagnostic("accounts.success", { count: accounts.length });
+    } catch (error) {
+      logDiagnosticError("accounts.error", error, {
+        path: "/api/cloudflare/accounts",
+        auth,
+        runtime: runtimeDiagnostics()
+      });
+      throw error;
+    }
+
     if (!accounts.length) throw new Error("No Cloudflare account is available to this OAuth grant.");
 
     selectedAccountId = accounts[0].id;
@@ -122,15 +151,26 @@ async function refreshUsage() {
       throw new Error("Session expired. Sign in again.");
     }
 
+    logDiagnostic("usage.request", {
+      plan: selectedPlan,
+      deployMetricsAccess: hasDeployMetricsAccess(),
+      auth: getAuthDiagnostics()
+    });
+
     const cards = await loadUsage(accessToken, selectedAccountId, selectedPlan, {
       deploymentAccess: hasDeployMetricsAccess()
     });
     renderCards(cards);
     const now = new Date();
     const loaded = cards.filter(card => card.confidence !== "unavailable").length;
+    const unavailable = cards
+      .filter(card => card.confidence === "unavailable")
+      .map(card => ({ service: card.service, metric: card.metric, error: card.error || null }));
+    logDiagnostic("usage.success", { loaded, unavailable });
     setStatus(`${loaded} metrics loaded · Workers ${selectedPlan === "paid" ? "Paid" : "Free"}`);
     els.updated.textContent = `Updated ${formatTime(now)}`;
   } catch (error) {
+    logDiagnosticError("usage.error", error, { auth: getAuthDiagnostics() });
     setStatus(errorMessage(error), true);
   } finally {
     setLoading(false);
@@ -149,7 +189,10 @@ function renderSignedOut() {
       <button type="button" data-sign-in>Sign in with Cloudflare</button>
     </section>
   `;
-  els.dashboard.querySelector("[data-sign-in]")?.addEventListener("click", () => signIn().catch(error => setStatus(errorMessage(error), true)));
+  els.dashboard.querySelector("[data-sign-in]")?.addEventListener("click", () => signIn().catch(error => {
+    logDiagnosticError("auth.inline_sign_in_error", error, { auth: getAuthDiagnostics() });
+    setStatus(errorMessage(error), true);
+  }));
   setStatus("Signed out");
   els.updated.textContent = "";
 }
@@ -161,8 +204,10 @@ function renderSignedInError(error) {
       <h2>Could not load Cloudflare data</h2>
       <p>${escapeHtml(errorMessage(error))}</p>
       <p>You are still signed in. Sign out and sign in again only if the OAuth grant or scopes need to be changed.</p>
+      ${diagnosticMarkup()}
     </section>
   `;
+  els.dashboard.querySelector("[data-copy-diagnostics]")?.addEventListener("click", copyDiagnostics);
   setStatus(errorMessage(error), true);
   els.updated.textContent = "";
 }
@@ -260,6 +305,63 @@ function setStatus(message, error = false) {
   els.status.dataset.level = error ? "error" : "normal";
 }
 
+function logDiagnostic(event, details = {}) {
+  const entry = {
+    time: new Date().toISOString(),
+    event,
+    ...details
+  };
+  const line = JSON.stringify(entry);
+  diagnostics.push(line);
+  if (diagnostics.length > 80) diagnostics.shift();
+  console.info("[cfFreeUsage]", entry);
+}
+
+function logDiagnosticError(event, error, details = {}) {
+  logDiagnostic(event, {
+    ...details,
+    error: {
+      name: error instanceof Error ? error.name : typeof error,
+      message: errorMessage(error),
+      kind: error instanceof TypeError ? "network-or-browser-fetch" : "api-or-application"
+    }
+  });
+}
+
+function runtimeDiagnostics() {
+  const controller = navigator.serviceWorker?.controller;
+  return {
+    build: BUILD_ID,
+    online: navigator.onLine,
+    standalone: window.matchMedia?.("(display-mode: standalone)")?.matches || false,
+    serviceWorkerControlled: Boolean(controller),
+    serviceWorkerScript: controller?.scriptURL || null,
+    origin: location.origin,
+    path: location.pathname
+  };
+}
+
+function diagnosticMarkup() {
+  return `
+    <details open>
+      <summary>Diagnostics</summary>
+      <pre style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:.68rem;line-height:1.35;max-height:24rem;overflow:auto">${escapeHtml(diagnostics.join("\n"))}</pre>
+      <button type="button" data-copy-diagnostics>Copy diagnostics</button>
+      <p class="metric-note">Tokens, OAuth codes, PKCE verifiers, and account IDs are not logged.</p>
+    </details>
+  `;
+}
+
+async function copyDiagnostics() {
+  const text = diagnostics.join("\n");
+  try {
+    await navigator.clipboard.writeText(text);
+    logDiagnostic("diagnostics.copied", { lines: diagnostics.length });
+  } catch (error) {
+    logDiagnosticError("diagnostics.copy_error", error);
+  }
+}
+
 function severity(ratio) {
   if (ratio == null) return "normal";
   if (ratio >= 1) return "danger";
@@ -322,9 +424,19 @@ function escapeHtml(value) {
 }
 
 function registerServiceWorker() {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js?v=__COMMIT_SHA__", { updateViaCache: "none" })
-      .then(registration => registration.update())
-      .catch(() => {});
+  if (!("serviceWorker" in navigator)) {
+    logDiagnostic("service_worker.unsupported");
+    return;
   }
+
+  navigator.serviceWorker.register("/sw.js?v=__COMMIT_SHA__", { updateViaCache: "none" })
+    .then(registration => {
+      logDiagnostic("service_worker.registered", {
+        scope: registration.scope,
+        controllerScript: navigator.serviceWorker.controller?.scriptURL || null
+      });
+      return registration.update();
+    })
+    .then(() => logDiagnostic("service_worker.update_checked"))
+    .catch(error => logDiagnosticError("service_worker.error", error));
 }

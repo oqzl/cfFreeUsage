@@ -4,7 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f6f6f3">
+  <meta name="description" content="Cloudflare free-tier usage dashboard">
   <title>cfFreeUsage</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -13,20 +16,32 @@
       <div>
         <p class="eyebrow">CLOUDFLARE FREE TIER</p>
         <h1>cfFreeUsage</h1>
-        <p class="subtitle">Account-wide usage against the limits that can stop free-tier workloads.</p>
+        <p class="subtitle">Account-wide operational usage against Cloudflare free-tier limits.</p>
       </div>
-      <button id="refresh" type="button">Refresh</button>
+      <div class="header-actions">
+        <button id="auth-button" type="button">Sign in</button>
+        <button id="refresh" type="button" disabled>Refresh</button>
+      </div>
     </header>
 
+    <section class="toolbar" aria-label="Dashboard controls">
+      <div class="field">
+        <label for="account">Cloudflare account</label>
+        <select id="account" disabled>
+          <option>Sign in first</option>
+        </select>
+      </div>
+    </section>
+
     <section class="statusbar" aria-live="polite">
-      <span id="status">Loading…</span>
+      <span id="status">Starting…</span>
       <span id="updated"></span>
     </section>
 
     <section id="dashboard" class="dashboard"></section>
 
     <footer>
-      Daily limits reset at 00:00 UTC. R2 limits reset monthly. Analytics can lag behind live traffic.
+      Daily quotas are measured from 00:00 UTC, not a rolling 24-hour window. GraphQL Analytics is operational telemetry rather than billing-canonical data. OAuth access and refresh tokens are kept in JavaScript memory only and disappear on reload or app restart.
     </footer>
   </main>
   <script type="module" src="/app.js"></script>

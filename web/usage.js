@@ -357,8 +357,8 @@ async function rest(accessToken, path, params = {}) {
 
 async function paginatedRest(accessToken, path, params, cutoff = null) {
   const rows = [];
-  for (let page = 1; page <= 20; page += 1) {
-    const payload = await rest(accessToken, path, { ...params, page, per_page: 100 });
+  for (let page = 1; page <= 50; page += 1) {
+    const payload = await rest(accessToken, path, { ...params, page, per_page: 20 });
     const result = Array.isArray(payload.result) ? payload.result : [];
     rows.push(...result);
 

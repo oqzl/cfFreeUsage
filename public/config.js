@@ -1,5 +1,5 @@
 export const OAUTH = {
-  clientId: "PASTE_CLOUDFLARE_OAUTH_CLIENT_ID",
+  clientId: "b46be3b9dbc67bb0fc81c09d7b3734a3",
   scopes: ["account-settings.read", "account-analytics.read"],
   authorizationEndpoint: "https://dash.cloudflare.com/oauth2/auth",
   tokenEndpoint: "https://dash.cloudflare.com/oauth2/token",

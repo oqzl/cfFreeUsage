@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f6f6f3">
-  <meta name="description" content="Cloudflare free-tier usage dashboard">
+  <meta name="description" content="Cloudflare usage dashboard">
   <title>cfFreeUsage</title>
   <link rel="manifest" href="/manifest.webmanifest?v=__COMMIT_SHA__">
   <link rel="icon" href="/icon.svg?v=__COMMIT_SHA__" type="image/svg+xml">
@@ -14,11 +14,12 @@
   <main class="shell">
     <header>
       <div>
-        <p class="eyebrow">CLOUDFLARE FREE TIER</p>
+        <p class="eyebrow">CLOUDFLARE USAGE</p>
         <h1>cfFreeUsage</h1>
-        <p class="subtitle">Account-wide operational usage against Cloudflare free-tier limits.</p>
+        <p class="subtitle">Account-wide operational usage against Cloudflare plan allowances.</p>
       </div>
       <div class="header-actions">
+        <button id="deploy-auth" type="button" hidden>Enable deploy metrics</button>
         <button id="auth-button" type="button">Sign in</button>
         <button id="refresh" type="button" disabled>Refresh</button>
       </div>
@@ -31,6 +32,13 @@
           <option>Sign in first</option>
         </select>
       </div>
+      <div class="field">
+        <label for="plan">Workers plan</label>
+        <select id="plan">
+          <option value="free">Free</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
     </section>
 
     <section class="statusbar" aria-live="polite">
@@ -41,7 +49,7 @@
     <section id="dashboard" class="dashboard"></section>
 
     <footer>
-      Daily quotas are measured from 00:00 UTC, not a rolling 24-hour window. GraphQL Analytics is operational telemetry rather than billing-canonical data. OAuth access and refresh tokens are kept in JavaScript memory only and disappear on reload or app restart.<br>
+      Free daily quotas use 00:00 UTC boundaries. Paid mode compares calendar month-to-date operational analytics with monthly included usage; the actual billing cycle may start on a different day. GraphQL Analytics and REST-derived build durations are operational estimates, not billing-canonical data. OAuth access and refresh tokens are kept in JavaScript memory only and disappear on reload or app restart.<br>
       Build __COMMIT_SHA__
     </footer>
   </main>

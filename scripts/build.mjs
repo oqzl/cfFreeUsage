@@ -13,8 +13,10 @@ await mkdir(output, { recursive: true });
 await cp(source, output, { recursive: true });
 
 await transform("index.html", text =>
-  text.replace(/(href|src)="\/(manifest\.webmanifest|icon\.svg|style\.css|app\.js)"/g,
-    (_, attr, file) => `${attr}="/${file}?v=${version}"`)
+  text
+    .replace(/(href|src)="\/(manifest\.webmanifest|icon\.svg|style\.css|app\.js)"/g,
+      (_, attr, file) => `${attr}="/${file}?v=${version}"`)
+    .replace("</footer>", `<br>Build ${version}</footer>`)
 );
 
 for (const file of ["app.js", "auth.js", "usage.js", "config.js"]) {
@@ -27,13 +29,12 @@ await transform("app.js", text =>
   text.replace('navigator.serviceWorker.register("/sw.js")', `navigator.serviceWorker.register("/sw.js?v=${version}")`)
 );
 
-await transform("sw.js", text => {
-  const versioned = text
+await transform("sw.js", text =>
+  text
     .replace('const CACHE = "cffreeusage-shell-v1";', `const CACHE = "cffreeusage-shell-${version}";`)
     .replace(/"\/(style\.css|app\.js|auth\.js|usage\.js|config\.js|manifest\.webmanifest|icon\.svg)"/g,
-      (_, file) => `"/${file}?v=${version}"`);
-  return versioned;
-});
+      (_, file) => `"/${file}?v=${version}"`)
+);
 
 await transform("manifest.webmanifest", text =>
   text.replace('"src": "/icon.svg"', `"src": "/icon.svg?v=${version}"`)

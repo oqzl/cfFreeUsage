@@ -47,6 +47,7 @@ PWA の正本と Cloudflare Static Assets の配布 root は `web/` です。`di
 - Workers Builds: 3,000 build-minutes/month
 - Pages builds: 当月の build 回数を表示し、Pages plan の上限は別記
 - R2 requests / storage: month-to-date の operational estimate
+- Realtime SFU egress / ingress: month-to-date の operational analytics
 
 Free の日次 quota は UTC 00:00 で reset します。
 
@@ -65,6 +66,8 @@ Workers plan selector を `Paid` にすると、Workers/KV/D1/Queues を月次 i
 Paid の実際の billing cycle は subscription renewal date に依存します。現行 UI は calendar month-to-date の operational analytics と included usage を比較するため、billing-canonical な残量ではありません。
 
 R2 の free tier / overage は Workers plan と別に扱います。
+
+Realtime SFU は GraphQL Analytics の `callsUsageAdaptiveGroups` から利用量を取得します。Cloudflare Realtime の egress 無料枠は SFU と TURN の合算で 1,000 GB/月です。TURN と SFU 間の traffic は二重課金されないため、cfFreeUsage では SFU の egress / ingress を表示し、SFU と TURN の telemetry を単純加算した誤った共通残量は表示しません。
 
 ## デプロイ系 metric
 

@@ -71,6 +71,7 @@ export async function loadUsage(accessToken, accountId, plan = "free", options =
     safely(() => d1(context), "D1", "Rows"),
     safely(() => queues(context), "Queues", "Operations"),
     safely(() => r2(context), "R2", "Storage / operations"),
+    safely(() => realtimeSfu(context), "Realtime SFU", "Egress / ingress"),
     safely(() => workerBuilds(context), "Workers Builds", "Build usage"),
     safely(() => pagesBuilds(context), "Pages", "Builds")
   ]);
@@ -238,6 +239,54 @@ async function r2(ctx) {
   return [
     infoCard("R2", "Requests", operations, "calendar month to date", "Analytics total; Class A/B quota classification unavailable", ctx),
     fixedCard("R2", "Storage snapshot", storage, 10 * GiB, "bytes", "current snapshot; free allowance is GB-month", "bills", ctx, "estimate")
+  ];
+}
+
+async function realtimeSfu(ctx) {
+  const data = await graphql(ctx.accessToken, `
+    query RealtimeSfuUsage($accountTag: string!, $start: Time!, $end: Time!) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          callsUsageAdaptiveGroups(
+            limit: 10000
+            filter: { datetime_geq: $start, datetime_leq: $end }
+          ) {
+            sum { egressBytes ingressBytes }
+          }
+        }
+      }
+    }
+  `, {
+    accountTag: ctx.accountId,
+    start: ctx.monthStart.toISOString(),
+    end: ctx.now.toISOString()
+  });
+
+  const rows = account(data)?.callsUsageAdaptiveGroups || [];
+  const egress = sum(rows, row => row.sum?.egressBytes);
+  const ingress = sum(rows, row => row.sum?.ingressBytes);
+
+  return [
+    infoCard(
+      "Realtime SFU",
+      "Egress",
+      egress,
+      "calendar month to date",
+      "Cloudflare Realtime includes 1,000 GB/month free egress shared across SFU and TURN. This card is SFU-only, so shared remaining usage is not calculated.",
+      ctx,
+      "GraphQL Analytics",
+      "bytes"
+    ),
+    infoCard(
+      "Realtime SFU",
+      "Ingress",
+      ingress,
+      "calendar month to date",
+      "Traffic sent from clients to Cloudflare Realtime is free of charge.",
+      ctx,
+      "GraphQL Analytics",
+      "bytes"
+    )
   ];
 }
 
@@ -412,13 +461,13 @@ function fixedCard(service, metric, usage, allowance, unit, period, limitBehavio
   return metricCard(service, metric, usage, allowance, unit, period, limitBehavior, ctx, confidence);
 }
 
-function infoCard(service, metric, usage, period, note, ctx, dataSource = "GraphQL Analytics") {
+function infoCard(service, metric, usage, period, note, ctx, dataSource = "GraphQL Analytics", unit = "count") {
   return {
     service,
     metric,
     usage,
     allowance: null,
-    unit: "count",
+    unit,
     remaining: null,
     ratio: null,
     period,

@@ -47,6 +47,7 @@ The canonical PWA source and Static Assets root are both `web/`. Do not introduc
 - Workers Builds: 3,000 build-minutes/month
 - Pages builds: current month count; Pages plan limits are shown separately
 - R2 requests/storage: month-to-date operational estimates
+- Realtime SFU egress/ingress: month-to-date operational analytics
 
 Free daily quotas reset at 00:00 UTC.
 
@@ -65,6 +66,8 @@ Selecting `Paid` changes Workers/KV/D1/Queues to monthly included usage:
 The actual paid billing cycle follows the subscription renewal date. The UI currently compares calendar month-to-date operational analytics with the monthly included amounts, so it is not a billing-canonical remaining balance.
 
 R2 free tier and overage are treated separately from the Workers plan.
+
+Realtime SFU usage is read from the GraphQL Analytics `callsUsageAdaptiveGroups` dataset. Cloudflare Realtime includes 1,000 GB/month of free egress shared by SFU and TURN. Because TURN-to-SFU traffic is not double charged, cfFreeUsage shows SFU egress and ingress but does not derive a shared remaining balance by simply adding SFU and TURN telemetry.
 
 ## Deployment metrics
 

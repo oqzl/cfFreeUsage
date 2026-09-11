@@ -13,6 +13,7 @@ Japanese: [README-ja.md](README-ja.md)
 - The dashboard can switch between Workers Free and Workers Paid quota views.
 - GraphQL Analytics and selected REST APIs are aggregated account-wide.
 - Missing metrics are shown as `Unavailable`, never as zero.
+- Each service section can be collapsed independently.
 
 ```text
 src/
@@ -73,18 +74,15 @@ Realtime SFU usage is read from the GraphQL Analytics `callsUsageAdaptiveGroups`
 
 Workers Builds and Pages metrics use Cloudflare REST APIs rather than GraphQL.
 
-Normal sign-in still requests only these base scopes:
+The initial Cloudflare sign-in requests all scopes required by the dashboard:
 
 - `account-settings.read`
 - `account-analytics.read`
-
-Add these as optional scopes to the Cloudflare OAuth client:
-
 - `page.read`
 - `workers-ci.read`
 - `workers-scripts.read`
 
-After that, use `Enable deploy metrics` in the PWA to re-authorize with the additional scopes. The normal dashboard remains usable before those optional scopes are configured.
+Configure all five scopes on the Cloudflare OAuth client. There is no separate deployment-metrics authorization step.
 
 Workers build minutes are estimated from build timestamps (`running_on` through `stopped_on`), so they are not Cloudflare's canonical billed usage.
 
@@ -99,14 +97,13 @@ Create a Cloudflare self-managed OAuth client:
 3. PKCE: `S256`.
 4. Add the production PWA URL as a Redirect URI.
 5. Add the production origin to Allowed CORS Origins.
-6. Base scopes:
+6. Scopes:
    - `account-settings.read`
    - `account-analytics.read`
-7. Optional deployment scopes:
    - `page.read`
    - `workers-ci.read`
    - `workers-scripts.read`
-8. Put the Client ID in `web/config.js`.
+7. Put the Client ID in `web/config.js`.
 
 No client secret is used.
 

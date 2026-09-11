@@ -24,12 +24,12 @@ export async function initializeAuth() {
   return Boolean(token?.access_token) && !isExpired(token);
 }
 
-export async function signIn(additionalScopes = []) {
+export async function signIn() {
   if (!OAUTH.clientId || OAUTH.clientId.startsWith("PASTE_")) {
     throw new Error("Set the Cloudflare OAuth Client ID in web/config.js first.");
   }
 
-  const requestedScopes = [...new Set([...OAUTH.scopes, ...additionalScopes])];
+  const requestedScopes = [...OAUTH.scopes];
   const verifier = randomBase64Url(48);
   const challenge = base64Url(
     new Uint8Array(
@@ -54,12 +54,8 @@ export async function signIn(additionalScopes = []) {
   location.assign(`${OAUTH.authorizationEndpoint}?${params}`);
 }
 
-export function enableDeployMetrics() {
-  return signIn(OAUTH.extendedScopes);
-}
-
 export function hasDeployMetricsAccess() {
-  return hasGrantedScopes(OAUTH.extendedScopes);
+  return hasGrantedScopes(OAUTH.deploymentScopes);
 }
 
 export function getAuthDiagnostics() {

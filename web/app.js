@@ -1,5 +1,4 @@
 import {
-  enableDeployMetrics,
   getAccessToken,
   getAuthDiagnostics,
   hasDeployMetricsAccess,
@@ -12,7 +11,6 @@ import { listAccounts, loadUsage } from "./usage.js?v=__COMMIT_SHA__";
 
 const els = {
   authButton: document.querySelector("#auth-button"),
-  deployAuthButton: document.querySelector("#deploy-auth"),
   refreshButton: document.querySelector("#refresh"),
   accountSelect: document.querySelector("#account"),
   planSelect: document.querySelector("#plan"),
@@ -65,22 +63,11 @@ function bindEvents() {
         updateAuthUi();
         renderSignedOut();
       } else {
-        logDiagnostic("auth.sign_in", { requested: "base scopes" });
+        logDiagnostic("auth.sign_in", { requested: "all dashboard scopes" });
         await signIn();
       }
     } catch (error) {
       logDiagnosticError("auth.action_error", error, { auth: getAuthDiagnostics() });
-      setStatus(errorMessage(error), true);
-    }
-  });
-
-  els.deployAuthButton.addEventListener("click", async () => {
-    if (loading) return;
-    try {
-      logDiagnostic("auth.deploy_metrics_sign_in", getAuthDiagnostics());
-      await enableDeployMetrics();
-    } catch (error) {
-      logDiagnosticError("auth.deploy_metrics_error", error, { auth: getAuthDiagnostics() });
       setStatus(errorMessage(error), true);
     }
   });
@@ -227,12 +214,15 @@ function renderCards(cards) {
   }
 
   els.dashboard.replaceChildren(...[...grouped.entries()].map(([service, metrics]) => {
-    const section = document.createElement("section");
+    const section = document.createElement("details");
     section.className = "service";
+    section.open = true;
 
+    const summary = document.createElement("summary");
     const heading = document.createElement("h2");
     heading.textContent = service;
-    section.append(heading);
+    summary.append(heading);
+    section.append(summary);
 
     const grid = document.createElement("div");
     grid.className = "metric-grid";
@@ -284,7 +274,6 @@ function renderMetric(card) {
 function updateAuthUi() {
   const signedIn = isSignedIn();
   els.authButton.textContent = signedIn ? "Sign out" : "Sign in";
-  els.deployAuthButton.hidden = !signedIn || hasDeployMetricsAccess();
   if (!signedIn) {
     els.refreshButton.disabled = true;
     els.accountSelect.disabled = true;
@@ -295,7 +284,6 @@ function setLoading(value) {
   loading = value;
   els.refreshButton.toggleAttribute("aria-busy", value);
   els.authButton.disabled = value;
-  els.deployAuthButton.disabled = value;
   if (value) els.refreshButton.disabled = true;
   else if (isSignedIn() && selectedAccountId) els.refreshButton.disabled = false;
 }

@@ -13,6 +13,7 @@ English: [README.md](README.md)
 - Free / Workers Paid の quota view を切替可能
 - GraphQL Analytics と REST API の値を account-wide に集計
 - 取得不能な metric は `0` ではなく `Unavailable`
+- 各サービス単位で表示を折りたたみ可能
 
 ```text
 src/
@@ -73,18 +74,15 @@ Realtime SFU は GraphQL Analytics の `callsUsageAdaptiveGroups` から利用�
 
 Workers Builds と Pages の metric は GraphQL ではなく Cloudflare REST API を使います。
 
-通常ログインは従来どおり以下の base scope だけを要求します。
+最初の Cloudflare ログインで dashboard に必要な scope をすべて要求します。
 
 - `account-settings.read`
 - `account-analytics.read`
-
-Cloudflare の OAuth client 側で、次の scope を optional scope として追加してください。
-
 - `page.read`
 - `workers-ci.read`
 - `workers-scripts.read`
 
-設定後、PWA の `Enable deploy metrics` を押すと追加 scope 付きで再認証します。通常ログインは base scope のままなので、追加 scope を Cloudflare 側へ設定する前でも既存 dashboard は壊れません。
+Cloudflare の OAuth client 側にも、この5つの scope を設定してください。deployment metric 用の追加認証操作はありません。
 
 Workers Builds は各 build の timestamp から `running_on`〜`stopped_on` を集計して build minutes を推定します。Cloudflare の請求値そのものではありません。
 
@@ -99,14 +97,13 @@ Cloudflare で self-managed OAuth client を作成します。
 3. PKCE: `S256`
 4. production PWA URL を Redirect URI に登録
 5. production origin を Allowed CORS Origins に登録
-6. base scopes:
+6. scopes:
    - `account-settings.read`
    - `account-analytics.read`
-7. deploy metrics 用 optional scopes:
    - `page.read`
    - `workers-ci.read`
    - `workers-scripts.read`
-8. Client ID を `web/config.js` に設定
+7. Client ID を `web/config.js` に設定
 
 Client Secret は使いません。
 

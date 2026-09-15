@@ -5,6 +5,17 @@ const GiB = 1024 ** 3;
 const PLAN = {
   free: {
     workersRequests: 100_000,
+    workersAiNeurons: 10_000,
+    aiGatewayStoredLogs: 100_000,
+    aiSearchQueries: 20_000,
+    aiSearchCrawlPages: 500,
+    vectorizeQueriedDimensions: 30_000_000,
+    vectorizeStoredDimensions: 5_000_000,
+    browserRunMinutes: 10,
+    imagesTransformations: 5_000,
+    hyperdriveQueries: 100_000,
+    durableObjectsRequests: 100_000,
+    workflowsSteps: 3_000,
     kvRead: 100_000,
     kvWrite: 1_000,
     kvDelete: 1_000,
@@ -17,6 +28,17 @@ const PLAN = {
   },
   paid: {
     workersRequests: 10_000_000,
+    workersAiNeurons: 10_000,
+    aiGatewayStoredLogs: null,
+    aiSearchQueries: null,
+    aiSearchCrawlPages: null,
+    vectorizeQueriedDimensions: 50_000_000,
+    vectorizeStoredDimensions: 10_000_000,
+    browserRunMinutes: 600,
+    imagesTransformations: 5_000,
+    hyperdriveQueries: null,
+    durableObjectsRequests: 1_000_000,
+    workflowsSteps: 500_000,
     kvRead: 10_000_000,
     kvWrite: 1_000_000,
     kvDelete: 1_000_000,
@@ -67,6 +89,15 @@ export async function loadUsage(accessToken, accountId, plan = "free", options =
 
   const groups = await Promise.all([
     safely(() => workers(context), "Workers", "Requests"),
+    safely(() => workersAi(context), "Workers AI", "Neurons"),
+    safely(() => aiGateway(context), "AI Gateway", "Stored logs"),
+    safely(() => aiSearch(context), "AI Search", "Queries / crawl"),
+    safely(() => vectorize(context), "Vectorize", "Vector dimensions"),
+    safely(() => hyperdrive(context), "Hyperdrive", "Database queries"),
+    safely(() => durableObjects(context), "Durable Objects", "Requests / storage"),
+    safely(() => workflows(context), "Workflows", "Steps"),
+    safely(() => browserRun(context), "Browser Run", "Browser duration"),
+    safely(() => images(context), "Images", "Transformations"),
     safely(() => kv(context), "Workers KV", "Operations"),
     safely(() => d1(context), "D1", "Rows"),
     safely(() => queues(context), "Queues", "Operations"),
@@ -101,6 +132,307 @@ async function workers(ctx) {
 
   const rows = account(data)?.workersInvocationsAdaptive || [];
   return [rangeCard("Workers", "Requests", sum(rows, row => row.sum?.requests), ctx.limits.workersRequests, "count", ctx)];
+}
+
+
+async function workersAi(ctx) {
+  return [
+    allowanceOnlyCard(
+      "Workers AI",
+      "Neurons",
+      ctx.limits.workersAiNeurons,
+      "count",
+      "UTC day",
+      ctx.plan === "paid" ? "bills" : "blocks",
+      ctx,
+      "Cloudflare documents this allowance and exposes Neuron usage in the Workers AI dashboard, but a stable account-wide usage API was not verified for this OAuth dashboard. Usage is intentionally not guessed.",
+      ctx.nextDay.toISOString()
+    )
+  ];
+}
+
+async function aiGateway(ctx) {
+  if (ctx.plan === "paid") {
+    return [
+      infoCard(
+        "AI Gateway",
+        "Stored logs",
+        null,
+        "current stored logs",
+        "Paid plans store up to 10,000,000 persistent logs per gateway. A single account-wide allowance is not applicable, and cfFreeUsage does not request AI Gateway-specific OAuth permission.",
+        ctx,
+        "Cloudflare published limits"
+      )
+    ];
+  }
+
+  return [
+    allowanceOnlyCard(
+      "AI Gateway",
+      "Stored logs",
+      ctx.limits.aiGatewayStoredLogs,
+      "count",
+      "account total",
+      "unknown",
+      ctx,
+      "Free plans can persist up to 100,000 logs across all gateways. cfFreeUsage does not request AI Gateway-specific OAuth permission, so current stored-log usage is not queried."
+    )
+  ];
+}
+
+async function aiSearch(ctx) {
+  if (ctx.plan === "paid") {
+    return [
+      infoCard(
+        "AI Search",
+        "Queries",
+        null,
+        "month",
+        "Paid plans do not have the Free-plan 20,000 queries/month allowance. No stable account-wide query-usage endpoint was verified for this dashboard.",
+        ctx,
+        "Cloudflare published limits"
+      ),
+      infoCard(
+        "AI Search",
+        "Web crawl pages",
+        null,
+        "UTC day",
+        "Paid plans do not have the Free-plan 500 pages/day crawl allowance. Current usage is not guessed.",
+        ctx,
+        "Cloudflare published limits"
+      )
+    ];
+  }
+
+  return [
+    allowanceOnlyCard(
+      "AI Search",
+      "Queries",
+      ctx.limits.aiSearchQueries,
+      "count",
+      "calendar month",
+      "blocks",
+      ctx,
+      "Free allowance. A stable account-wide query-usage endpoint was not verified for this dashboard."
+    ),
+    allowanceOnlyCard(
+      "AI Search",
+      "Web crawl pages",
+      ctx.limits.aiSearchCrawlPages,
+      "count",
+      "UTC day",
+      "blocks",
+      ctx,
+      "Free allowance. Current crawl-page usage is not guessed.",
+      ctx.nextDay.toISOString()
+    )
+  ];
+}
+
+async function vectorize(ctx) {
+  return [
+    allowanceOnlyCard(
+      "Vectorize",
+      "Queried vector dimensions",
+      ctx.limits.vectorizeQueriedDimensions,
+      "count",
+      "calendar month",
+      ctx.plan === "paid" ? "bills" : "blocks",
+      ctx,
+      "Published monthly allowance. A stable account-wide usage endpoint was not verified, so usage is not inferred from indexes."
+    ),
+    allowanceOnlyCard(
+      "Vectorize",
+      "Stored vector dimensions",
+      ctx.limits.vectorizeStoredDimensions,
+      "count",
+      "included storage",
+      ctx.plan === "paid" ? "bills" : "blocks",
+      ctx,
+      "Published included stored-vector allowance. Current usage is intentionally not estimated from index metadata."
+    )
+  ];
+}
+
+async function hyperdrive(ctx) {
+  const data = await graphql(ctx.accessToken, `
+    query HyperdriveRange($accountTag: string!, $start: Time!, $end: Time!) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          hyperdriveQueriesAdaptiveGroups(
+            limit: 10000
+            filter: { datetime_geq: $start, datetime_leq: $end }
+          ) {
+            count
+          }
+        }
+      }
+    }
+  `, {
+    accountTag: ctx.accountId,
+    start: ctx.rangeStart.toISOString(),
+    end: ctx.now.toISOString()
+  });
+
+  const usage = sum(account(data)?.hyperdriveQueriesAdaptiveGroups || [], row => row.count);
+  if (ctx.plan === "paid") {
+    return [
+      infoCard(
+        "Hyperdrive",
+        "Database queries",
+        usage,
+        "calendar month to date",
+        "Hyperdrive database queries are unlimited on Workers Paid. This is operational GraphQL Analytics, not billing data.",
+        ctx
+      )
+    ];
+  }
+
+  return [
+    metricCard(
+      "Hyperdrive",
+      "Database queries",
+      usage,
+      ctx.limits.hyperdriveQueries,
+      "count",
+      "UTC day",
+      "blocks",
+      ctx,
+      "operational",
+      "Account-wide operational GraphQL Analytics.",
+      ctx.nextDay.toISOString()
+    )
+  ];
+}
+
+async function durableObjects(ctx) {
+  const data = await graphql(ctx.accessToken, `
+    query DurableObjectsRange($accountTag: string!, $start: Date!, $end: Date!) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          durableObjectsInvocationsAdaptiveGroups(
+            limit: 10000
+            filter: { date_geq: $start, date_leq: $end }
+          ) {
+            sum { requests }
+          }
+        }
+      }
+    }
+  `, {
+    accountTag: ctx.accountId,
+    start: ctx.startDate,
+    end: ctx.endDate
+  });
+
+  const requests = sum(account(data)?.durableObjectsInvocationsAdaptiveGroups || [], row => row.sum?.requests);
+  const requestCard = metricCard(
+    "Durable Objects",
+    "Requests",
+    requests,
+    ctx.limits.durableObjectsRequests,
+    "count",
+    ctx.plan === "paid" ? "calendar month to date" : "UTC day",
+    ctx.plan === "paid" ? "bills" : "blocks",
+    ctx,
+    ctx.plan === "paid" ? "estimate" : "operational",
+    ctx.plan === "paid"
+      ? "Paid included usage resets on the subscription billing cycle; calendar month-to-date is an operational comparison."
+      : "Account-wide operational GraphQL Analytics.",
+    ctx.plan === "paid" ? null : ctx.nextDay.toISOString()
+  );
+
+  const storageCard = allowanceOnlyCard(
+    "Durable Objects",
+    "SQLite storage",
+    5 * GiB,
+    "bytes",
+    ctx.plan === "paid" ? "included GB-month" : "account total",
+    ctx.plan === "paid" ? "bills" : "blocks",
+    ctx,
+    ctx.plan === "paid"
+      ? "Paid includes 5 GB-month of SQLite storage. A current byte snapshot is not equivalent to GB-month, so cfFreeUsage does not manufacture a remaining balance."
+      : "Free includes 5 GB of SQLite storage. Current account-total storage is not shown unless it can be aggregated without undercounting."
+  );
+
+  return [requestCard, storageCard];
+}
+
+async function workflows(ctx) {
+  const data = await graphql(ctx.accessToken, `
+    query WorkflowSteps($accountTag: string!, $start: Time!, $end: Time!) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          workflowsAdaptiveGroups(
+            limit: 10000
+            filter: {
+              datetimeHour_geq: $start
+              datetimeHour_leq: $end
+              eventType: "STEP_START"
+            }
+          ) {
+            count
+          }
+        }
+      }
+    }
+  `, {
+    accountTag: ctx.accountId,
+    start: ctx.rangeStart.toISOString(),
+    end: ctx.now.toISOString()
+  });
+
+  const steps = sum(account(data)?.workflowsAdaptiveGroups || [], row => row.count);
+  return [
+    metricCard(
+      "Workflows",
+      "Steps",
+      steps,
+      ctx.limits.workflowsSteps,
+      "count",
+      ctx.plan === "paid" ? "calendar month to date" : "UTC day",
+      ctx.plan === "paid" ? "bills" : "blocks",
+      ctx,
+      "estimate",
+      "Estimated from GraphQL STEP_START events. This is operational telemetry, not billing-canonical step usage.",
+      ctx.plan === "paid" ? null : ctx.nextDay.toISOString()
+    )
+  ];
+}
+
+async function browserRun(ctx) {
+  return [
+    allowanceOnlyCard(
+      "Browser Run",
+      "Browser duration",
+      ctx.limits.browserRunMinutes,
+      "minutes",
+      ctx.plan === "paid" ? "month" : "UTC day",
+      ctx.plan === "paid" ? "bills" : "blocks",
+      ctx,
+      ctx.plan === "paid"
+        ? "Workers Paid includes 10 hours/month of browser duration. No stable account-wide usage endpoint was verified for this dashboard."
+        : "Workers Free includes 10 minutes/day of browser duration. No stable account-wide usage endpoint was verified for this dashboard.",
+      ctx.plan === "paid" ? null : ctx.nextDay.toISOString()
+    )
+  ];
+}
+
+async function images(ctx) {
+  return [
+    allowanceOnlyCard(
+      "Images",
+      "Unique transformations",
+      ctx.limits.imagesTransformations,
+      "count",
+      "calendar month",
+      ctx.plan === "paid" ? "bills" : "blocks",
+      ctx,
+      ctx.plan === "paid"
+        ? "The first 5,000 unique transformations per month are included, then transformations are billed. Current usage is not guessed."
+        : "Free allows up to 5,000 unique transformations per month. Current usage is not guessed."
+    )
+  ];
 }
 
 async function kv(ctx) {
@@ -476,6 +808,28 @@ function infoCard(service, metric, usage, period, note, ctx, dataSource = "Graph
     resetAt: null,
     limitBehavior: "unknown",
     dataSource,
+    freshness: ctx.now.toISOString(),
+    confidence: "informational",
+    note
+  };
+}
+
+
+function allowanceOnlyCard(service, metric, allowance, unit, period, limitBehavior, ctx, note = null, resetAt = null) {
+  return {
+    service,
+    metric,
+    usage: null,
+    allowance,
+    unit,
+    remaining: null,
+    ratio: null,
+    period,
+    periodStart: null,
+    periodEnd: ctx.now.toISOString(),
+    resetAt,
+    limitBehavior,
+    dataSource: "Cloudflare published limits",
     freshness: ctx.now.toISOString(),
     confidence: "informational",
     note

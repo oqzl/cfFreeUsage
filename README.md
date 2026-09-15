@@ -38,6 +38,15 @@ The canonical PWA source and Static Assets root are both `web/`. Do not introduc
 ### Workers Free
 
 - Workers requests: 100,000/day
+- Workers AI: 10,000 Neurons/day
+- AI Gateway persistent logs: 100,000/account
+- AI Search: 20,000 queries/month and 500 web-crawl pages/day
+- Vectorize: 30M queried vector dimensions/month and 5M stored vector dimensions
+- Hyperdrive: 100,000 database queries/day
+- Durable Objects: 100,000 requests/day and 5 GiB SQLite storage
+- Workflows: 3,000 steps/day
+- Browser Run: 10 browser minutes/day
+- Images: 5,000 unique transformations/month
 - Workers KV reads: 100,000/day
 - Workers KV writes/deletes/lists: 1,000/day each
 - Workers KV storage: 1 GiB
@@ -57,6 +66,12 @@ Free daily quotas reset at 00:00 UTC.
 Selecting `Paid` changes Workers/KV/D1/Queues to monthly included usage:
 
 - Workers requests: 10,000,000/month included
+- Workers AI: 10,000 Neurons/day free, then usage-based billing
+- Vectorize: 50M queried vector dimensions/month and 10M stored vector dimensions included
+- Durable Objects: 1,000,000 requests/month included
+- Workflows: 500,000 steps/month included
+- Browser Run: 10 browser hours/month included
+- Images: first 5,000 unique transformations/month included
 - Workers KV reads: 10,000,000/month included
 - Workers KV writes/deletes/lists: 1,000,000/month included each
 - D1 rows read: 25 billion/month included
@@ -69,6 +84,8 @@ The actual paid billing cycle follows the subscription renewal date. The UI curr
 R2 free tier and overage are treated separately from the Workers plan.
 
 Realtime SFU usage is read from the GraphQL Analytics `callsUsageAdaptiveGroups` dataset. Cloudflare Realtime includes 1,000 GB/month of free egress shared by SFU and TURN. Because TURN-to-SFU traffic is not double charged, cfFreeUsage shows SFU egress and ingress but does not derive a shared remaining balance by simply adding SFU and TURN telemetry.
+
+Hyperdrive, Durable Objects, and Workflows use account-wide GraphQL Analytics where a defensible operational metric is available. Workers AI, AI Gateway, AI Search, Vectorize, Browser Run, and Images currently show published allowances without inventing a zero or inferred usage value when no stable account-wide usage endpoint has been verified for this OAuth dashboard. These cards deliberately display `— / allowance` until a reliable source is available.
 
 ## Deployment metrics
 

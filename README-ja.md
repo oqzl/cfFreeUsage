@@ -38,6 +38,15 @@ PWA の正本と Cloudflare Static Assets の配布 root は `web/` です。`di
 ### Workers Free
 
 - Workers requests: 100,000/day
+- Workers AI: 10,000 Neurons/day
+- AI Gateway persistent logs: 100,000/account
+- AI Search: 20,000 queries/month、web crawl 500 pages/day
+- Vectorize: queried vector dimensions 30M/month、stored vector dimensions 5M
+- Hyperdrive: 100,000 database queries/day
+- Durable Objects: 100,000 requests/day、SQLite storage 5 GiB
+- Workflows: 3,000 steps/day
+- Browser Run: browser duration 10 minutes/day
+- Images: 5,000 unique transformations/month
 - Workers KV reads: 100,000/day
 - Workers KV writes/deletes/lists: 各 1,000/day
 - Workers KV storage: 1 GiB
@@ -57,6 +66,12 @@ Free の日次 quota は UTC 00:00 で reset します。
 Workers plan selector を `Paid` にすると、Workers/KV/D1/Queues を月次 included usage と比較します。
 
 - Workers requests: 10,000,000/month included
+- Workers AI: 10,000 Neurons/day free、その後従量課金
+- Vectorize: queried vector dimensions 50M/month、stored vector dimensions 10M included
+- Durable Objects: 1,000,000 requests/month included
+- Workflows: 500,000 steps/month included
+- Browser Run: 10 browser hours/month included
+- Images: 最初の 5,000 unique transformations/month included
 - Workers KV reads: 10,000,000/month included
 - Workers KV writes/deletes/lists: 各 1,000,000/month included
 - D1 rows read: 25 billion/month included
@@ -69,6 +84,8 @@ Paid の実際の billing cycle は subscription renewal date に依存します
 R2 の free tier / overage は Workers plan と別に扱います。
 
 Realtime SFU は GraphQL Analytics の `callsUsageAdaptiveGroups` から利用量を取得します。Cloudflare Realtime の egress 無料枠は SFU と TURN の合算で 1,000 GB/月です。TURN と SFU 間の traffic は二重課金されないため、cfFreeUsage では SFU の egress / ingress を表示し、SFU と TURN の telemetry を単純加算した誤った共通残量は表示しません。
+
+Hyperdrive、Durable Objects、Workflows は、妥当な operational metric を account-wide に集計できる場合に GraphQL Analytics を使います。Workers AI、AI Gateway、AI Search、Vectorize、Browser Run、Images は、現行 OAuth dashboard から安定した account-wide usage endpoint を確認できないものについて、usage を 0 や推定値で埋めず published allowance だけを表示します。信頼できる source が追加されるまでは `— / allowance` 表示です。
 
 ## デプロイ系 metric
 

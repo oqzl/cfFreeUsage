@@ -144,10 +144,19 @@ async function refreshUsage() {
       auth: getAuthDiagnostics()
     });
 
+    let usageGrids = [];
+    let completedGroups = 0;
     const cards = await loadUsage(accessToken, selectedAccountId, selectedPlan, {
-      deploymentAccess: hasDeployMetricsAccess()
+      deploymentAccess: hasDeployMetricsAccess(),
+      onStart(groups) {
+        usageGrids = prepareUsageSections(groups);
+      },
+      onGroup({ index, total, cards: groupCards }) {
+        renderUsageGroup(usageGrids[index], groupCards);
+        completedGroups += 1;
+        setStatus(`Loading usage… ${completedGroups}/${total} services`);
+      }
     });
-    renderCards(cards);
     const now = new Date();
     const loaded = cards.filter(card => card.confidence !== "unavailable").length;
     const unavailable = cards
@@ -206,30 +215,48 @@ function renderAccountSelect() {
   els.refreshButton.disabled = false;
 }
 
-function renderCards(cards) {
-  const grouped = new Map();
-  for (const card of cards) {
-    if (!grouped.has(card.service)) grouped.set(card.service, []);
-    grouped.get(card.service).push(card);
-  }
-
-  els.dashboard.replaceChildren(...[...grouped.entries()].map(([service, metrics]) => {
-    const section = document.createElement("details");
-    section.className = "service";
-    section.open = true;
-
-    const summary = document.createElement("summary");
-    const heading = document.createElement("h2");
-    heading.textContent = service;
-    summary.append(heading);
-    section.append(summary);
-
-    const grid = document.createElement("div");
-    grid.className = "metric-grid";
-    for (const metric of metrics) grid.append(renderMetric(metric));
-    section.append(grid);
+function prepareUsageSections(groups) {
+  const grids = [];
+  const sections = groups.map(group => {
+    const { section, grid } = createServiceSection(group.service);
+    const placeholder = document.createElement("article");
+    placeholder.className = "metric";
+    placeholder.innerHTML = `
+      <div class="metric-head">
+        <h3>${escapeHtml(group.metric)}</h3>
+        <span class="badge">Loading…</span>
+      </div>
+    `;
+    grid.append(placeholder);
+    grids.push(grid);
     return section;
-  }));
+  });
+
+  els.dashboard.replaceChildren(...sections);
+  return grids;
+}
+
+function renderUsageGroup(grid, cards) {
+  if (!grid) return;
+  grid.replaceChildren(...cards.map(renderMetric));
+}
+
+function createServiceSection(service) {
+  const section = document.createElement("details");
+  section.className = "service";
+  section.open = true;
+
+  const summary = document.createElement("summary");
+  const heading = document.createElement("h2");
+  heading.textContent = service;
+  summary.append(heading);
+  section.append(summary);
+
+  const grid = document.createElement("div");
+  grid.className = "metric-grid";
+  section.append(grid);
+
+  return { section, grid };
 }
 
 function renderMetric(card) {
@@ -283,6 +310,7 @@ function updateAuthUi() {
 function setLoading(value) {
   loading = value;
   els.refreshButton.toggleAttribute("aria-busy", value);
+  els.dashboard.toggleAttribute("aria-busy", value);
   els.authButton.disabled = value;
   if (value) els.refreshButton.disabled = true;
   else if (isSignedIn() && selectedAccountId) els.refreshButton.disabled = false;

@@ -87,25 +87,47 @@ export async function loadUsage(accessToken, accountId, plan = "free", options =
     deploymentAccess: Boolean(options.deploymentAccess)
   };
 
-  const groups = await Promise.all([
-    safely(() => workers(context), "Workers", "Requests"),
-    safely(() => workersAi(context), "Workers AI", "Neurons"),
-    safely(() => aiGateway(context), "AI Gateway", "Stored logs"),
-    safely(() => aiSearch(context), "AI Search", "Queries / crawl"),
-    safely(() => vectorize(context), "Vectorize", "Vector dimensions"),
-    safely(() => hyperdrive(context), "Hyperdrive", "Database queries"),
-    safely(() => durableObjects(context), "Durable Objects", "Requests / storage"),
-    safely(() => workflows(context), "Workflows", "Steps"),
-    safely(() => browserRun(context), "Browser Run", "Browser duration"),
-    safely(() => images(context), "Images", "Transformations"),
-    safely(() => kv(context), "Workers KV", "Operations"),
-    safely(() => d1(context), "D1", "Rows"),
-    safely(() => queues(context), "Queues", "Operations"),
-    safely(() => r2(context), "R2", "Storage / operations"),
-    safely(() => realtimeSfu(context), "Realtime SFU", "Egress / ingress"),
-    safely(() => workerBuilds(context), "Workers Builds", "Build usage"),
-    safely(() => pagesBuilds(context), "Pages", "Builds")
-  ]);
+  const groupLoaders = [
+    { service: "Workers", metric: "Requests", load: () => workers(context) },
+    { service: "Workers AI", metric: "Neurons", load: () => workersAi(context) },
+    { service: "AI Gateway", metric: "Stored logs", load: () => aiGateway(context) },
+    { service: "AI Search", metric: "Queries / crawl", load: () => aiSearch(context) },
+    { service: "Vectorize", metric: "Vector dimensions", load: () => vectorize(context) },
+    { service: "Hyperdrive", metric: "Database queries", load: () => hyperdrive(context) },
+    { service: "Durable Objects", metric: "Requests / storage", load: () => durableObjects(context) },
+    { service: "Workflows", metric: "Steps", load: () => workflows(context) },
+    { service: "Browser Run", metric: "Browser duration", load: () => browserRun(context) },
+    { service: "Images", metric: "Transformations", load: () => images(context) },
+    { service: "Workers KV", metric: "Operations", load: () => kv(context) },
+    { service: "D1", metric: "Rows", load: () => d1(context) },
+    { service: "Queues", metric: "Operations", load: () => queues(context) },
+    { service: "R2", metric: "Storage / operations", load: () => r2(context) },
+    { service: "Realtime SFU", metric: "Egress / ingress", load: () => realtimeSfu(context) },
+    { service: "Workers Builds", metric: "Build usage", load: () => workerBuilds(context) },
+    { service: "Pages", metric: "Builds", load: () => pagesBuilds(context) }
+  ];
+
+  options.onStart?.(
+    groupLoaders.map((group, index) => ({
+      index,
+      service: group.service,
+      metric: group.metric
+    }))
+  );
+
+  const groups = await Promise.all(
+    groupLoaders.map(async (group, index) => {
+      const cards = await safely(group.load, group.service, group.metric);
+      options.onGroup?.({
+        index,
+        total: groupLoaders.length,
+        service: group.service,
+        metric: group.metric,
+        cards
+      });
+      return cards;
+    })
+  );
 
   return groups.flat();
 }

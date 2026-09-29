@@ -13,6 +13,7 @@ Japanese: [README-ja.md](README-ja.md)
 - The dashboard can switch between Workers Free and Workers Paid quota views.
 - GraphQL Analytics and selected REST APIs are aggregated account-wide.
 - Missing metrics are shown as `Unavailable`, never as zero.
+- Usage groups are fetched in parallel and rendered progressively into a stable service order.
 - Each service section can be collapsed independently.
 
 ```text

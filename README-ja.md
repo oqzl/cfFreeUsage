@@ -13,6 +13,7 @@ English: [README.md](README.md)
 - Free / Workers Paid の quota view を切替可能
 - GraphQL Analytics と REST API の値を account-wide に集計
 - 取得不能な metric は `0` ではなく `Unavailable`
+- 指標グループは並列取得し、サービス順を固定したまま取得済みのものから順次描画
 - 各サービス単位で表示を折りたたみ可能
 
 ```text

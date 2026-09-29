@@ -8,8 +8,8 @@ Japanese: [README-ja.md](README-ja.md)
 
 - `web/` is served directly with Cloudflare Workers Static Assets.
 - `src/worker.js` is a narrow same-origin read-only relay for Cloudflare APIs.
-- Cloudflare self-managed OAuth with Authorization Code + PKCE (`S256`).
-- Access and refresh tokens are kept in JavaScript memory only.
+- Cloudflare self-managed OAuth with Authorization Code + Refresh Token + PKCE (`S256`).
+- Access tokens stay in JavaScript memory; the refresh token is stored in IndexedDB for up to 14 days.
 - The dashboard can switch between Workers Free and Workers Paid quota views.
 - GraphQL Analytics and selected REST APIs are aggregated account-wide.
 - Missing metrics are shown as `Unavailable`, never as zero.
@@ -109,7 +109,7 @@ Pages counts non-skipped `github:push` and `deploy_hook` deployments in the curr
 
 Create a Cloudflare self-managed OAuth client:
 
-1. Authorization Code grant.
+1. Authorization Code and Refresh Token grants.
 2. Token endpoint authentication method: `none`.
 3. PKCE: `S256`.
 4. Add the production PWA URL as a Redirect URI.
@@ -124,16 +124,20 @@ Create a Cloudflare self-managed OAuth client:
 
 No client secret is used.
 
+The authorization request includes `offline_access`. Cloudflare adds that protocol scope to clients that enable the Refresh Token grant.
+
 ## Security boundary
 
-- OAuth tokens are never persisted to IndexedDB, `localStorage`, Cache Storage, cookies, or service-worker caches.
+- Access tokens are never persisted to IndexedDB, `localStorage`, Cache Storage, cookies, or service-worker caches.
+- The refresh token is the only OAuth credential persisted; it is stored in IndexedDB with an application-side maximum lifetime of 14 days.
+- Refresh-token rotation updates the stored token without extending the original 14-day deadline. Sign-out, local expiry, or an invalid refresh grant clears the stored token.
 - The bearer token passes through the app's own Worker but is not persisted.
 - The relay forwards only fixed allowlisted Cloudflare API operations.
 - Relay responses use `Cache-Control: no-store`.
 - The service worker bypasses `/api/`.
 - Avoid third-party scripts on this origin.
 
-Memory-only storage does not protect an in-memory token from same-origin XSS.
+IndexedDB does not protect a stored refresh token from same-origin XSS. Access tokens in memory and the persisted refresh token remain readable to injected same-origin JavaScript.
 
 ## Cloudflare Builds
 

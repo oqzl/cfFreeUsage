@@ -8,8 +8,8 @@ English: [README.md](README.md)
 
 - Cloudflare Workers Static Assets で `web/` をそのまま配信
 - `src/worker.js` の same-origin relay から Cloudflare API を read-only で取得
-- Cloudflare self-managed OAuth + Authorization Code + PKCE (`S256`)
-- access token / refresh token は JavaScript メモリだけに保持
+- Cloudflare self-managed OAuth + Authorization Code + Refresh Token + PKCE (`S256`)
+- access token は JavaScript メモリだけに保持し、refresh token は IndexedDB に最大14日保存
 - Free / Workers Paid の quota view を切替可能
 - GraphQL Analytics と REST API の値を account-wide に集計
 - 取得不能な metric は `0` ではなく `Unavailable`
@@ -109,7 +109,7 @@ Pages は当月の deployment のうち `github:push` / `deploy_hook` かつ ski
 
 Cloudflare で self-managed OAuth client を作成します。
 
-1. Authorization Code grant
+1. Authorization Code / Refresh Token grant
 2. token endpoint authentication method: `none`
 3. PKCE: `S256`
 4. production PWA URL を Redirect URI に登録
@@ -124,16 +124,20 @@ Cloudflare で self-managed OAuth client を作成します。
 
 Client Secret は使いません。
 
+認可リクエストでは `offline_access` も要求します。Cloudflare は Refresh Token grant を有効にした client に、この protocol scope を自動追加します。
+
 ## セキュリティ境界
 
-- OAuth token を IndexedDB、`localStorage`、Cache Storage、Cookie、Service Worker cache に保存しない
+- access token は IndexedDB、`localStorage`、Cache Storage、Cookie、Service Worker cache に保存しない
+- 永続化する OAuth credential は refresh token だけとし、IndexedDB に保存してアプリ側で最大14日に制限する
+- refresh token が rotation されても最初の14日期限は延長しない。Sign out、アプリ側期限切れ、無効な refresh grant では保存 token を削除する
 - bearer token は自分の Worker を通るが永続化しない
 - relay は固定 allowlist の Cloudflare endpoint だけを中継
 - relay response は `Cache-Control: no-store`
 - Service Worker は `/api/` を cache しない
 - third-party script を置かない
 
-メモリ保存は XSS から token を守るものではありません。同一 origin の JavaScript からは実行中 token にアクセスできます。
+IndexedDB は XSS から refresh token を守る境界にはなりません。同一 origin に JavaScript を注入された場合、メモリ上の access token と保存済み refresh token の双方を読み取られ得ます。
 
 ## Cloudflare Builds
 

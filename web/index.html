@@ -48,7 +48,7 @@
     <section id="dashboard" class="dashboard"></section>
 
     <footer>
-      Free daily quotas use 00:00 UTC boundaries. Paid mode compares calendar month-to-date operational analytics with monthly included usage; the actual billing cycle may start on a different day. GraphQL Analytics and REST-derived build durations are operational estimates, not billing-canonical data. OAuth access and refresh tokens are kept in JavaScript memory only and disappear on reload or app restart.<br>
+      Free daily quotas use 00:00 UTC boundaries. Paid mode compares calendar month-to-date operational analytics with monthly included usage; the actual billing cycle may start on a different day. GraphQL Analytics and REST-derived build durations are operational estimates, not billing-canonical data. OAuth access tokens stay in memory. The refresh token is stored in IndexedDB for up to 14 days and removed on sign-out or local session expiry.<br>
       Build __COMMIT_SHA__
     </footer>
   </main>

@@ -172,7 +172,7 @@ function renderSignedOut() {
   els.dashboard.innerHTML = `
     <section class="empty-state">
       <h2>Sign in to Cloudflare</h2>
-      <p>OAuth tokens are held in memory only. Reloading or closing this PWA signs you out.</p>
+      <p>Access tokens stay in memory. With Refresh Token enabled, this device can keep your Cloudflare sign-in for up to 14 days.</p>
       <button type="button" data-sign-in>Sign in with Cloudflare</button>
     </section>
   `;

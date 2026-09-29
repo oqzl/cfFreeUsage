@@ -5,7 +5,8 @@ export const OAUTH = {
     "account-analytics.read",
     "page.read",
     "workers-ci.read",
-    "workers-scripts.read"
+    "workers-scripts.read",
+    "offline_access"
   ],
   deploymentScopes: ["page.read", "workers-ci.read", "workers-scripts.read"],
   authorizationEndpoint: "https://dash.cloudflare.com/oauth2/auth",

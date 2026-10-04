@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "check:catalog": "node scripts/check-catalog.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },

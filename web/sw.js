@@ -2,11 +2,15 @@ const CACHE = "cffreeusage-shell-__COMMIT_SHA__";
 const APP_SHELL = [
   "/",
   "/index.html",
+  "/catalog.html?v=__COMMIT_SHA__",
   "/style.css?v=__COMMIT_SHA__",
+  "/catalog/style.css?v=__COMMIT_SHA__",
   "/app.js?v=__COMMIT_SHA__",
   "/auth.js?v=__COMMIT_SHA__",
   "/usage.js?v=__COMMIT_SHA__",
   "/config.js?v=__COMMIT_SHA__",
+  "/catalog/app.js?v=__COMMIT_SHA__",
+  "/catalog/data.js?v=__COMMIT_SHA__",
   "/manifest.webmanifest?v=__COMMIT_SHA__",
   "/icon.svg?v=__COMMIT_SHA__"
 ];
@@ -34,10 +38,13 @@ self.addEventListener("fetch", event => {
       fetch(event.request)
         .then(response => {
           const copy = response.clone();
-          caches.open(CACHE).then(cache => cache.put("/index.html", copy));
+          caches.open(CACHE).then(cache => cache.put(url.pathname, copy));
           return response;
         })
-        .catch(() => caches.match("/index.html"))
+        .catch(async () => {
+          const page = await caches.match(url.pathname);
+          return page || caches.match("/index.html");
+        })
     );
     return;
   }

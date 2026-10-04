@@ -39,7 +39,17 @@ header {
   border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
   padding-bottom: 14px;
 }
-.header-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.header-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.header-actions a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, CanvasText 24%, transparent);
+  border-radius: 8px;
+  color: CanvasText;
+  text-decoration: none;
+}
 .eyebrow { margin: 0 0 4px; font-size: .72rem; letter-spacing: .12em; opacity: .62; }
 h1 { margin: 0; font-size: clamp(1.65rem, 4vw, 2.4rem); font-weight: 650; letter-spacing: -.035em; }
 .subtitle { margin: 6px 0 0; max-width: 56rem; opacity: .68; font-size: .92rem; }
@@ -142,7 +152,7 @@ footer {
   header { align-items: flex-start; }
   .subtitle { display: none; }
   .header-actions { flex-direction: column; }
-  .header-actions button { min-width: 88px; }
+  .header-actions button, .header-actions a { min-width: 88px; justify-content: center; }
   .toolbar { grid-template-columns: 1fr auto; }
   .metric-grid { grid-template-columns: 1fr 1fr; }
 }

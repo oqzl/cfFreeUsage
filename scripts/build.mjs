@@ -13,8 +13,10 @@ const version = sha.slice(0, 12);
 
 const files = [
   "index.html",
+  "catalog.html",
   "app.js",
   "auth.js",
+  "catalog/app.js",
   "sw.js",
   "manifest.webmanifest"
 ];

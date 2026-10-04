@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f6f6f3">
+  <meta name="description" content="Cloudflare feature availability and pricing catalog">
+  <title>cfFreeUsage · Service catalog</title>
+  <link rel="manifest" href="/manifest.webmanifest?v=__COMMIT_SHA__">
+  <link rel="icon" href="/icon.svg?v=__COMMIT_SHA__" type="image/svg+xml">
+  <link rel="stylesheet" href="/catalog/style.css?v=__COMMIT_SHA__">
+</head>
+<body>
+  <main class="shell">
+    <header class="page-head">
+      <div>
+        <p class="eyebrow">CLOUDFLARE SERVICE CATALOG</p>
+        <h1>Availability ≠ quota ≠ price</h1>
+        <p class="subtitle">Free availability, Free quota, Pay-as-you-go pricing, and Enterprise-only status are tracked as separate facts. The catalog includes the 2026-10-02 “Enterprise for everyone” update and current product pricing pages.</p>
+      </div>
+      <a class="back-link" href="/?v=__COMMIT_SHA__">Usage dashboard</a>
+    </header>
+
+    <section class="controls" aria-label="Catalog filters">
+      <div class="field">
+        <label for="catalog-filter">Availability</label>
+        <select id="catalog-filter">
+          <option value="all">All</option>
+          <option value="free">Available on Free</option>
+          <option value="payg-only">PAYG, not Free</option>
+          <option value="enterprise">Enterprise-only now</option>
+          <option value="review">Needs re-check / transition</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="catalog-search">Search</label>
+        <input id="catalog-search" type="search" autocomplete="off" placeholder="Workers, Logpush, AI Search…">
+      </div>
+    </section>
+
+    <p id="catalog-count" class="catalog-meta" aria-live="polite"></p>
+    <section id="catalog-list" class="catalog-list"></section>
+
+    <footer>
+      The weekly catalog check fetches Cloudflare official pages and verifies the pricing/availability assertions used by this catalog. A failed check means the source wording or published facts changed and the catalog needs review; it does not auto-rewrite pricing data.<br>
+      Build __COMMIT_SHA__
+    </footer>
+  </main>
+  <script type="module" src="/catalog/app.js?v=__COMMIT_SHA__"></script>
+</body>
+</html>

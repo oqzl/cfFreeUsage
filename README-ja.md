@@ -55,6 +55,7 @@ PWA の正本と Cloudflare Static Assets の配布 root は `web/` です。`di
 - D1 rows written: 100,000/day
 - D1 storage: 5 GiB
 - Queues operations: 10,000/day
+- Email Routing: ルーティングイベント・転送・処理・破棄・失敗件数（UTC日次、無制限受信）
 - Workers Builds: 3,000 build-minutes/month
 - Pages builds: 当月の build 回数を表示し、Pages plan の上限は別記
 - R2 requests / storage: month-to-date の operational estimate
@@ -78,6 +79,7 @@ Workers plan selector を `Paid` にすると、Workers/KV/D1/Queues を月次 i
 - D1 rows read: 25 billion/month included
 - D1 rows written: 50 million/month included
 - Queues operations: 1,000,000/month included
+- Email Routing: イベント件数（暦月累計、無制限受信）
 - Workers Builds: 6,000 build-minutes/month included
 
 Paid の実際の billing cycle は subscription renewal date に依存します。現行 UI は calendar month-to-date の operational analytics と included usage を比較するため、billing-canonical な残量ではありません。
@@ -88,6 +90,8 @@ Realtime SFU は GraphQL Analytics の `callsUsageAdaptiveGroups` から利用�
 
 Hyperdrive、Durable Objects、Workflows は、妥当な operational metric を account-wide に集計できる場合に GraphQL Analytics を使います。Workers AI、AI Gateway、AI Search、Vectorize、Browser Run、Images は、現行 OAuth dashboard から安定した account-wide usage endpoint を確認できないものについて、usage を 0 や推定値で埋めず published allowance だけを表示します。信頼できる source が追加されるまでは `— / allowance` 表示です。
 
+Email Routing は全 Zone の `emailRoutingAdaptiveGroups` を取得して合算します。いずれかの Zone で失敗すると `Unavailable` とし、過少計上を防ぎます。統計はイベント数であり、ユニークメール数とは限りません。保持は31日で、差出人・宛先・件名は取得しません。
+
 ## デプロイ系 metric
 
 Workers Builds と Pages の metric は GraphQL ではなく Cloudflare REST API を使います。
@@ -96,11 +100,13 @@ Workers Builds と Pages の metric は GraphQL ではなく Cloudflare REST API
 
 - `account-settings.read`
 - `account-analytics.read`
+- `zone.read`
+- `analytics.read`
 - `page.read`
 - `workers-ci.read`
 - `workers-scripts.read`
 
-Cloudflare の OAuth client 側にも、この5つの scope を設定してください。deployment metric 用の追加認証操作はありません。
+Cloudflare の OAuth client 側にも、この7つの scope を設定してください。deployment metric 用の追加認証操作はありません。
 
 Workers Builds は各 build の timestamp から `running_on`〜`stopped_on` を集計して build minutes を推定します。Cloudflare の請求値そのものではありません。
 
@@ -118,10 +124,14 @@ Cloudflare で self-managed OAuth client を作成します。
 6. scopes:
    - `account-settings.read`
    - `account-analytics.read`
+- `zone.read`
+- `analytics.read`
    - `page.read`
    - `workers-ci.read`
    - `workers-scripts.read`
 7. Client ID を `web/config.js` に設定
+
+OAuth client 側の scope を追加後、一度サインアウトして再認証してください。再認証前は Email Routing のみ `Unavailable` となります。
 
 Client Secret は使いません。
 

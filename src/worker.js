@@ -38,6 +38,10 @@ function extendedReadUrl(url) {
   const perPage = safePerPage(url.searchParams.get("per_page"));
   const paging = `page=${page}&per_page=${perPage}`;
 
+  if (url.pathname === "/api/cloudflare/zones") {
+    return `${CLOUDFLARE_API}/zones?account.id=${encodeURIComponent(accountId)}&${paging}`;
+  }
+
   if (url.pathname === "/api/cloudflare/workers/scripts") {
     return `${CLOUDFLARE_API}/accounts/${accountId}/workers/scripts`;
   }

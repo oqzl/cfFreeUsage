@@ -84,7 +84,8 @@ export async function loadUsage(accessToken, accountId, plan = "free", options =
     endDate: now.toISOString().slice(0, 10),
     plan: selectedPlan,
     limits: PLAN[selectedPlan],
-    deploymentAccess: Boolean(options.deploymentAccess)
+    deploymentAccess: Boolean(options.deploymentAccess),
+    emailRoutingAccess: Boolean(options.emailRoutingAccess)
   };
 
   const groupLoaders = [
@@ -101,6 +102,7 @@ export async function loadUsage(accessToken, accountId, plan = "free", options =
     { service: "Workers KV", metric: "Operations", load: () => kv(context) },
     { service: "D1", metric: "Rows", load: () => d1(context) },
     { service: "Queues", metric: "Operations", load: () => queues(context) },
+    { service: "Email Routing", metric: "Routing events", load: () => emailRouting(context) },
     { service: "R2", metric: "Storage / operations", load: () => r2(context) },
     { service: "Realtime SFU", metric: "Egress / ingress", load: () => realtimeSfu(context) },
     { service: "Workers Builds", metric: "Build usage", load: () => workerBuilds(context) },
@@ -556,6 +558,89 @@ async function queues(ctx) {
 
   const rows = account(data)?.queueMessageOperationsAdaptiveGroups || [];
   return [rangeCard("Queues", "Billable operations", sum(rows, row => row.sum?.billableOperations), ctx.limits.queuesOperations, "count", ctx)];
+}
+
+
+async function emailRouting(ctx) {
+  if (!ctx.emailRoutingAccess) {
+    return [unavailableCard("Email Routing", "Routing events",
+      "Add zone.read and analytics.read to the Cloudflare OAuth client, then sign out and sign in again.")];
+  }
+
+  const zones = await listEmailRoutingZones(ctx);
+  if (!zones.length) {
+    return [unavailableCard("Email Routing", "Routing events",
+      "No accessible zones were returned for this account; routing totals cannot be established.")];
+  }
+
+  // Email Routing analytics are zone-scoped, not account-scoped.
+  const total = { events: 0, forwarded: 0, handled: 0, dropped: 0, failures: 0 };
+  for (const zone of zones) {
+    const data = await graphql(ctx.accessToken, `
+      query EmailRoutingByStatus($zoneTag: string!, $start: Date!, $end: Date!) {
+        viewer {
+          zones(filter: { zoneTag: $zoneTag }) {
+            emailRoutingAdaptiveGroups(
+              filter: { date_geq: $start, date_leq: $end }
+              limit: 10000
+            ) {
+              count
+              dimensions { status action }
+            }
+          }
+        }
+      }
+    `, { zoneTag: zone.id, start: ctx.startDate, end: ctx.endDate });
+    const rows = data?.viewer?.zones?.[0]?.emailRoutingAdaptiveGroups;
+    if (!Array.isArray(rows)) {
+      throw new Error(`Email Routing analytics unavailable for zone ${zone.name || zone.id}; refusing partial account totals.`);
+    }
+    const counts = summarizeEmailRoutingRows(rows);
+    for (const key of Object.keys(total)) total[key] += counts[key];
+  }
+
+  const period = ctx.plan === "paid" ? "calendar month to date" : "UTC day";
+  const note = `Account-wide across ${zones.length} zones. Event counts, not unique messages; analytics retention is 31 days. Inbound routing is unlimited on both Workers plans.`;
+  return [
+    ["Routing events", total.events],
+    ["Forwarded", total.forwarded],
+    ["Worker handled", total.handled],
+    ["Dropped", total.dropped],
+    ["Failed or rejected", total.failures]
+  ].map(([metric, usage]) => ({
+    ...infoCard("Email Routing", metric, usage, period, note, ctx),
+    limitBehavior: "unlimited"
+  }));
+}
+
+async function listEmailRoutingZones(ctx) {
+  const zones = [];
+  for (let page = 1; page <= 100; page += 1) {
+    const payload = await rest(ctx.accessToken, "/zones", {
+      account_id: ctx.accountId, page, per_page: 50
+    });
+    if (!Array.isArray(payload.result)) throw new Error("Invalid zones API response");
+    zones.push(...payload.result.filter(zone => zone.account?.id === ctx.accountId));
+    const pages = Number(payload.result_info?.total_pages || 0);
+    if ((pages && page >= pages) || (!pages && payload.result.length < 50)) return zones;
+  }
+  throw new Error("Zone listing exceeded 100 pages; refusing incomplete routing totals.");
+}
+
+export function summarizeEmailRoutingRows(rows) {
+  const totals = { events: 0, forwarded: 0, handled: 0, dropped: 0, failures: 0 };
+  for (const row of rows) {
+    const count = Number(row?.count);
+    if (!Number.isFinite(count) || count < 0) throw new Error("Invalid Email Routing event count");
+    const status = String(row.dimensions?.status || "").toLowerCase();
+    const action = String(row.dimensions?.action || "").toLowerCase();
+    totals.events += count;
+    if (action === "forward" && (status === "delivered" || status === "forwarded")) totals.forwarded += count;
+    if (status === "handled") totals.handled += count;
+    if (status === "dropped") totals.dropped += count;
+    if (["deliveryfailed", "error", "rejected", "failed"].includes(status)) totals.failures += count;
+  }
+  return totals;
 }
 
 async function r2(ctx) {

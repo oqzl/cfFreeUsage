@@ -2,6 +2,12 @@ export const CATALOG_LAST_REVIEWED = "2026-10-05";
 
 export const CATALOG_SOURCE_CHECKS = [
   {
+    id: "email-service-pricing",
+    source_url: "https://developers.cloudflare.com/email-service/platform/pricing/",
+    check_url: "https://developers.cloudflare.com/email-service/platform/pricing/index.md",
+    assertions: ["Inbound emails (Email Routing)", "Unlimited", "Email Routing Workers is billed according to"]
+  },
+  {
     id: "enterprise-for-all",
     source_url: "https://blog.cloudflare.com/enterprise-for-all-update/",
     check_url: "https://blog.cloudflare.com/enterprise-for-all-update/",
@@ -305,6 +311,18 @@ export const SERVICE_CATALOG = [
     status: "verified",
     note: null,
     source_ids: ["workers-pricing"]
+  },
+  {
+    id: "email-routing",
+    name: "Email Routing",
+    category: "Messaging",
+    available_on_free: true,
+    free_quota: "Unlimited inbound routing; email handler Worker invocations follow Workers limits",
+    payg_price: "Unlimited inbound routing; email handlers follow Workers Paid usage pricing",
+    enterprise_only: false,
+    status: "verified",
+    note: "Analytics are zone-scoped, retained for 31 days, and require zone.read and analytics.read OAuth scopes.",
+    source_ids: ["email-service-pricing"]
   },
   {
     id: "r2",

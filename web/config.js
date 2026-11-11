@@ -3,12 +3,15 @@ export const OAUTH = {
   scopes: [
     "account-settings.read",
     "account-analytics.read",
+    "zone.read",
+    "analytics.read",
     "page.read",
     "workers-ci.read",
     "workers-scripts.read",
     "offline_access"
   ],
   deploymentScopes: ["page.read", "workers-ci.read", "workers-scripts.read"],
+  emailRoutingScopes: ["zone.read", "analytics.read"],
   authorizationEndpoint: "https://dash.cloudflare.com/oauth2/auth",
   tokenEndpoint: "https://dash.cloudflare.com/oauth2/token",
   revokeEndpoint: "https://dash.cloudflare.com/oauth2/revoke"

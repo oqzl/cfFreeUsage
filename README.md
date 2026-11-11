@@ -55,6 +55,7 @@ The canonical PWA source and Static Assets root are both `web/`. Do not introduc
 - D1 rows written: 100,000/day
 - D1 storage: 5 GiB
 - Queues operations: 10,000/day
+- Email Routing: routing events/statuses (UTC day; unlimited inbound)
 - Workers Builds: 3,000 build-minutes/month
 - Pages builds: current month count; Pages plan limits are shown separately
 - R2 requests/storage: month-to-date operational estimates
@@ -78,6 +79,7 @@ Selecting `Paid` changes Workers/KV/D1/Queues to monthly included usage:
 - D1 rows read: 25 billion/month included
 - D1 rows written: 50 million/month included
 - Queues operations: 1,000,000/month included
+- Email Routing: routing events/statuses (calendar month; unlimited inbound)
 - Workers Builds: 6,000 build-minutes/month included
 
 The actual paid billing cycle follows the subscription renewal date. The UI currently compares calendar month-to-date operational analytics with the monthly included amounts, so it is not a billing-canonical remaining balance.
@@ -88,6 +90,8 @@ Realtime SFU usage is read from the GraphQL Analytics `callsUsageAdaptiveGroups`
 
 Hyperdrive, Durable Objects, and Workflows use account-wide GraphQL Analytics where a defensible operational metric is available. Workers AI, AI Gateway, AI Search, Vectorize, Browser Run, and Images currently show published allowances without inventing a zero or inferred usage value when no stable account-wide usage endpoint has been verified for this OAuth dashboard. These cards deliberately display `— / allowance` until a reliable source is available.
 
+Email Routing is queried per zone through `emailRoutingAdaptiveGroups` and summed across zones in the selected account. A failed zone makes the entire result `Unavailable`, avoiding undercounting. Counts are events, not necessarily unique messages. Retention is 31 days; no sender, recipient or subject fields are fetched.
+
 ## Deployment metrics
 
 Workers Builds and Pages metrics use Cloudflare REST APIs rather than GraphQL.
@@ -96,11 +100,13 @@ The initial Cloudflare sign-in requests all scopes required by the dashboard:
 
 - `account-settings.read`
 - `account-analytics.read`
+- `zone.read`
+- `analytics.read`
 - `page.read`
 - `workers-ci.read`
 - `workers-scripts.read`
 
-Configure all five scopes on the Cloudflare OAuth client. There is no separate deployment-metrics authorization step.
+Configure all seven scopes on the Cloudflare OAuth client. There is no separate deployment-metrics authorization step.
 
 Workers build minutes are estimated from build timestamps (`running_on` through `stopped_on`), so they are not Cloudflare's canonical billed usage.
 
@@ -118,10 +124,14 @@ Create a Cloudflare self-managed OAuth client:
 6. Scopes:
    - `account-settings.read`
    - `account-analytics.read`
+- `zone.read`
+- `analytics.read`
    - `page.read`
    - `workers-ci.read`
    - `workers-scripts.read`
 7. Put the Client ID in `web/config.js`.
+
+After updating the Cloudflare OAuth client with the new scopes, sign out and sign in again. Existing sessions show Email Routing as `Unavailable` while other metrics continue to load.
 
 No client secret is used.
 

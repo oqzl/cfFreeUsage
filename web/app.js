@@ -2,6 +2,7 @@ import {
   getAccessToken,
   getAuthDiagnostics,
   hasDeployMetricsAccess,
+  hasEmailRoutingAccess,
   initializeAuth,
   isSignedIn,
   signIn,
@@ -148,6 +149,7 @@ async function refreshUsage() {
     let completedGroups = 0;
     const cards = await loadUsage(accessToken, selectedAccountId, selectedPlan, {
       deploymentAccess: hasDeployMetricsAccess(),
+      emailRoutingAccess: hasEmailRoutingAccess(),
       onStart(groups) {
         usageGrids = prepareUsageSections(groups);
       },
@@ -389,6 +391,7 @@ function behaviorText(value) {
   if (value === "blocks") return "Stops / rejects at limit";
   if (value === "bills") return "Overage may be billed";
   if (value === "feature_unavailable") return "Feature unavailable";
+  if (value === "unlimited") return "Unlimited inbound routing";
   return "Unknown";
 }
 

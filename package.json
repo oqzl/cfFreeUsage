@@ -6,7 +6,8 @@
     "build": "node scripts/build.mjs",
     "check:catalog": "node scripts/check-catalog.mjs",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "node --test"
   },
   "devDependencies": {
     "wrangler": "^4.34.0"

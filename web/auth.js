@@ -68,6 +68,10 @@ export function hasDeployMetricsAccess() {
   return hasGrantedScopes(OAUTH.deploymentScopes);
 }
 
+export function hasEmailRoutingAccess() {
+  return hasGrantedScopes(OAUTH.emailRoutingScopes);
+}
+
 export function getAuthDiagnostics() {
   return {
     signedIn: isSignedIn(),
